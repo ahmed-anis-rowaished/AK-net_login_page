@@ -1,0 +1,1374 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta http-equiv="pragma" content="no-cache">
+    <meta http-equiv="expires" content="-1">
+    <meta http-equiv="refresh" content="60; url=$(link-status)">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AK Net - حالة الاتصال والاشتراك</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f0f9f0 0%, #e8f5e9 50%, #c8e6c9 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px 15px;
+            overflow-x: hidden;
+        }
+
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 0;
+        }
+
+        .particle {
+            position: absolute;
+            background: rgba(46, 125, 50, 0.15);
+            border-radius: 50%;
+            animation: float linear infinite;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(-100vh) rotate(720deg); opacity: 0; }
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 440px;
+        }
+
+        .status-box {
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 35px 24px;
+            border: 1px solid rgba(46, 125, 50, 0.2);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.08);
+            text-align: center;
+        }
+
+        .logo-container {
+            margin-bottom: 15px;
+        }
+
+        .logo {
+            width: 130px;
+            height: 130px;
+            border-radius: 18px;
+            object-fit: cover;
+            border: 3px solid rgba(46, 125, 50, 0.3);
+            box-shadow: 0 10px 30px rgba(46, 125, 50, 0.2);
+        }
+
+        .title-section {
+            margin-bottom: 18px;
+        }
+
+        .main-title {
+            font-size: 30px;
+            font-weight: 700;
+            color: #1b5e20;
+            margin-bottom: 4px;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            font-size: 15px;
+            color: #2e7d32;
+            font-weight: 500;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: rgba(76, 175, 80, 0.12);
+            border: 1px solid rgba(76, 175, 80, 0.3);
+            border-radius: 30px;
+            padding: 6px 18px;
+            margin-bottom: 18px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            background: #4caf50;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+            box-shadow: 0 0 12px rgba(76, 175, 80, 0.7);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.15); }
+        }
+
+        .status-text {
+            color: #1b5e20;
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .user-welcome {
+            background: #f1f8e9;
+            border: 1px solid #c5e1a5;
+            border-radius: 14px;
+            padding: 14px;
+            margin-bottom: 18px;
+            text-align: center;
+        }
+
+        .welcome-text {
+            color: #2e7d32;
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+
+        .welcome-text strong {
+            color: #1b5e20;
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .pkg-badge-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+
+        .pkg-badge {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            border: 1px solid #a5d6a7;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        .stat-card {
+            background: #f9fbf7;
+            border-radius: 14px;
+            padding: 16px 12px;
+            border: 1px solid #dcedc8;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(46, 125, 50, 0.08);
+        }
+
+        .stat-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 8px;
+        }
+
+        .stat-icon svg {
+            width: 20px;
+            height: 20px;
+            color: #fff;
+        }
+
+        .stat-icon.time { background: linear-gradient(135deg, #7cb342 0%, #558b2f 100%); }
+        .stat-icon.data { background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); }
+        .stat-icon.usage { background: linear-gradient(135deg, #66bb6a 0%, #43a047 100%); }
+        .stat-icon.validity { background: linear-gradient(135deg, #8bc34a 0%, #689f38 100%); }
+
+        .stat-label {
+            color: #558b2f;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            color: #1b5e20;
+            font-size: 15px;
+            font-weight: 700;
+            line-height: 1.3;
+            min-height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .stat-sub {
+            color: #689f38;
+            font-size: 11px;
+            margin-top: 4px;
+            line-height: 1.2;
+        }
+
+        .progress-box {
+            background: #f1f8e9;
+            border: 1px solid #c5e1a5;
+            border-radius: 14px;
+            padding: 14px;
+            margin-bottom: 18px;
+            text-align: right;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .progress-title {
+            color: #2e7d32;
+            font-weight: 600;
+        }
+
+        .progress-percent {
+            color: #1b5e20;
+            font-weight: 700;
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 10px;
+            background: #e0eed1;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4caf50 0%, #2e7d32 100%);
+            border-radius: 8px;
+            transition: width 0.5s ease;
+            width: 0%;
+        }
+
+        .progress-footer {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #689f38;
+            margin-top: 6px;
+        }
+
+        .info-section {
+            background: #f1f8e9;
+            border: 1px solid #c5e1a5;
+            border-radius: 14px;
+            padding: 12px 16px;
+            margin-bottom: 18px;
+            text-align: right;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 9px 0;
+            border-bottom: 1px solid #dcedc8;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: #558b2f;
+            font-size: 13px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .info-label svg {
+            width: 15px;
+            height: 15px;
+            color: #689f38;
+        }
+
+        .info-value {
+            color: #1b5e20;
+            font-size: 13px;
+            font-weight: 600;
+            direction: ltr;
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 13px 18px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.25s ease;
+            cursor: pointer;
+            border: none;
+            flex: 1;
+        }
+
+        .btn-refresh {
+            background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+            color: #fff;
+            box-shadow: 0 8px 20px rgba(76, 175, 80, 0.35);
+        }
+
+        .btn-logout {
+            background: linear-gradient(135deg, #ef5350 0%, #c62828 100%);
+            color: #fff;
+            box-shadow: 0 8px 20px rgba(239, 83, 80, 0.25);
+        }
+
+        .btn-details {
+            background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
+            color: #fff;
+            box-shadow: 0 6px 16px rgba(46, 125, 50, 0.25);
+            font-size: 14px;
+            padding: 12px 18px;
+            width: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.05);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn svg {
+            width: 17px;
+            height: 17px;
+        }
+
+        .refresh-note {
+            color: #689f38;
+            font-size: 12px;
+            margin-top: 15px;
+        }
+
+        .contact-section {
+            margin-top: 18px;
+            padding-top: 16px;
+            border-top: 1px solid #c5e1a5;
+        }
+
+        .contact-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 11px 22px;
+            background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+            border-radius: 10px;
+            color: #fff;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .contact-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(76, 175, 80, 0.3);
+        }
+
+        .contact-btn svg {
+            width: 17px;
+            height: 17px;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px 15px;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #fff;
+            border-radius: 20px;
+            padding: 25px 20px;
+            max-width: 440px;
+            width: 100%;
+            max-height: 85vh;
+            overflow-y: auto;
+            border: 1px solid rgba(46, 125, 50, 0.25);
+            position: relative;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+            text-align: right;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: #f1f8e9;
+            border: 1px solid #c5e1a5;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .modal-close:hover {
+            background: #dcedc8;
+        }
+
+        .modal-close svg {
+            width: 18px;
+            height: 18px;
+            color: #2e7d32;
+        }
+
+        .modal-title {
+            color: #1b5e20;
+            font-size: 20px;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+
+
+        .um-link-box {
+            background: #f1f8e9;
+            border: 1px dashed #81c784;
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+            margin-top: 15px;
+        }
+
+        .um-link-box p {
+            color: #33691e;
+            font-size: 12px;
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+
+        .um-direct-btn {
+            display: inline-block;
+            background: #2e7d32;
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .um-direct-btn:hover {
+            background: #1b5e20;
+        }
+
+        @media (max-width: 480px) {
+            .status-box {
+                padding: 28px 18px;
+            }
+
+            .main-title {
+                font-size: 26px;
+            }
+
+            .stats-grid {
+                gap: 9px;
+            }
+
+            .stat-card {
+                padding: 14px 8px;
+            }
+
+            .stat-value {
+                font-size: 14px;
+            }
+
+            .btn-row {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- خلفية الجزيئات التفاعلية -->
+    <div class="particles" id="particles"></div>
+
+    <!-- الحاوية الرئيسية -->
+    <div class="container">
+        <div class="status-box">
+            <!-- الشعار -->
+            <div class="logo-container">
+                <img src="img/aknet-logo.png" alt="AK Net Logo" class="logo">
+            </div>
+
+            <!-- العنوان والوصف -->
+            <div class="title-section">
+                <h1 class="main-title">AK Net</h1>
+                <p class="subtitle">حالة الاتصال والاشتراك</p>
+            </div>
+
+            <!-- مؤشر الاتصال -->
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span class="status-text">متصل بالإنترنت</span>
+            </div>
+
+            <!-- ترحيب المستخدم ومعلومات الكرت -->
+            <div class="user-welcome">
+                <p class="welcome-text">مرحباً بك: <strong id="user-display">$(username)</strong></p>
+                <div class="pkg-badge-wrapper">
+                    <span class="pkg-badge" id="active-pkg-badge">
+                        <span>📦</span>
+                        <span id="active-pkg-text">حساب يوزر مانجر</span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- شبكة الإحصائيات (4 بطاقات متوافقة مع RouterOS 7 واليوزر مانجر) -->
+            <div class="stats-grid">
+                <!-- 1. مدة الجلسة (Uptime) -->
+                <div class="stat-card">
+                    <div class="stat-icon time">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                    </div>
+                    <div class="stat-label">مدة الجلسة</div>
+                    <div class="stat-value" id="uptime-display">$(uptime)</div>
+                    <div class="stat-sub" id="uptime-sub">الوقت المنقضي</div>
+                </div>
+
+                <!-- 2. الرصيد المتبقي (Remaining Quota) -->
+                <div class="stat-card">
+                    <div class="stat-icon data">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                    </div>
+                    <div class="stat-label">الرصيد المتبقي</div>
+                    <div class="stat-value" id="data-rem">جاري الحساب..</div>
+                    <div class="stat-sub" id="data-rem-sub">رصيد البيانات</div>
+                </div>
+
+                <!-- 3. استهلاك الجلسة (Session Traffic Total) -->
+                <div class="stat-card">
+                    <div class="stat-icon usage">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
+                            <path d="M7 16l-4-4m0 0l4-4m-4 4h18"></path>
+                        </svg>
+                    </div>
+                    <div class="stat-label">استهلاك الجلسة</div>
+                    <div class="stat-value" id="data-used">0 ميغابايت</div>
+                    <div class="stat-sub" id="data-used-sub">تحميل ورفع</div>
+                </div>
+
+                <!-- 4. صلاحية الوقت (Validity / Time Left) -->
+                <div class="stat-card">
+                    <div class="stat-icon validity">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="M12 6v6l4 2"></path>
+                        </svg>
+                    </div>
+                    <div class="stat-label">صلاحية الوقت</div>
+                    <div class="stat-value" id="time-rem">جاري الحساب..</div>
+                    <div class="stat-sub" id="time-rem-sub">الوقت المتبقي</div>
+                </div>
+            </div>
+
+            <!-- شريط تقدم استهلاك البيانات (Progress Bar) -->
+            <div class="progress-box" id="progress-box" style="display:none;">
+                <div class="progress-header">
+                    <span class="progress-title">استهلاك الباقة:</span>
+                    <span class="progress-percent" id="progress-percent-text">0%</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" id="progress-bar-fill"></div>
+                </div>
+                <div class="progress-footer">
+                    <span id="progress-used-text">المستهلك: 0 MB</span>
+                    <span id="progress-total-text">الإجمالي: 0 MB</span>
+                </div>
+            </div>
+
+            <!-- قسم التفاصيل والمعلومات الإضافية -->
+            <div class="info-section">
+                <div class="info-row">
+                    <span class="info-label">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                        عنوان IP الخاص بك:
+                    </span>
+                    <span class="info-value">$(ip)</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+                        عنوان MAC للجهاز:
+                    </span>
+                    <span class="info-value">$(mac)</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+                        حجم باقة الكرت:
+                    </span>
+                    <span class="info-value" id="package-total-val">جاري القراءة..</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        حجم التنزيل (Download):
+                    </span>
+                    <span class="info-value" id="download-val">$(bytes-out-nice)</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 14 12 9 7 14"></polyline><line x1="12" y1="9" x2="12" y2="21"></line></svg>
+                        حجم الرفع (Upload):
+                    </span>
+                    <span class="info-value" id="upload-val">$(bytes-in-nice)</span>
+                </div>
+            </div>
+
+            <!-- أزرار الإجراءات والتحكم -->
+            <div class="action-buttons">
+                <div class="btn-row">
+                    <a href="$(link-status)" class="btn btn-refresh">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="23 4 23 10 17 10"></polyline>
+                            <polyline points="1 20 1 14 7 14"></polyline>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                        </svg>
+                        <span>تحديث البيانات</span>
+                    </a>
+
+                    <a href="$(link-logout)" class="btn btn-logout">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16 17 21 12 16 7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                        </svg>
+                        <span>تسجيل الخروج</span>
+                    </a>
+                </div>
+
+                <!-- زر تفاصيل الكرت والاشتراك (يفتح نافذة داخلية بدون أي خطأ 404) -->
+                <button type="button" class="btn btn-details" onclick="openModal('details')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                    </svg>
+                    <span>تفاصيل الكرت واستهلاك الباقة</span>
+                </button>
+            </div>
+
+            <p class="refresh-note">يتم تحديث هذه الصفحة والعدادات تلقائياً كل دقيقة</p>
+
+            <!-- قسم الدعم الفني والتواصل -->
+            <div class="contact-section">
+                <a href="https://wa.me/967774093109" target="_blank" class="contact-btn">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"></path>
+                    </svg>
+                    <span>تواصل مع الدعم الفني</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة تفاصيل الكرت والاشتراك -->
+    <div class="modal-overlay" id="details-modal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal('details')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+            <h2 class="modal-title">📋 تفاصيل الاشتراك</h2>
+            
+            <div class="info-section" style="margin-bottom:15px;">
+                <div class="info-row">
+                    <span class="info-label">اسم المستخدم (الكرت):</span>
+                    <span class="info-value">$(username)</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">حالة الجلسة:</span>
+                    <span class="info-value" style="color:#2e7d32;">متصل ونشط</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">فئة الكرت المعتمدة:</span>
+                    <span class="info-value" id="modal-pkg-name">غير محدد</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">إجمالي الباقة:</span>
+                    <span class="info-value" id="modal-pkg-total">---</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">المتبقي من الرصيد:</span>
+                    <span class="info-value" id="modal-pkg-rem" style="color:#1b5e20;">---</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">مدة الاتصال:</span>
+                    <span class="info-value">$(uptime)</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">استهلاك الجلسة الكلي:</span>
+                    <span class="info-value" id="modal-session-used">0 ميغابايت</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">عنوان IP:</span>
+                    <span class="info-value">$(ip)</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">عنوان MAC:</span>
+                    <span class="info-value">$(mac)</span>
+                </div>
+            </div>
+
+            <!-- رابط اختياري لبوابة User Manager v7 لمن تتوفر لديه الخدمة مع التوجيه الصحيح بالـ slash / -->
+            <div class="um-link-box">
+                <p>إذا كنت تمتلك حساباً مسجلاً في بوابة User Manager الرسمية:</p>
+                <a href="http://$(hostname)/um/" target="_blank" class="um-direct-btn">فتح بوابة User Manager (/um/)</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- لوحة تشخيصية تفصيلية لبيانات RouterOS 7 (خاصة بالمختبر وبيئة التطوير فقط) -->
+    <div class="diag-panel" id="diag-panel" style="max-width:480px; margin:20px auto; background:#18181b; color:#f4f4f5; padding:16px; border-radius:14px; font-family:Consolas, Monaco, monospace; font-size:11px; direction:ltr; text-align:left; border:1px solid #3f3f46; box-shadow:0 10px 30px rgba(0,0,0,0.35);">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #3f3f46; padding-bottom:8px; margin-bottom:10px;">
+            <span style="color:#22c55e; font-weight:700; font-size:12px;">🛠️ RouterOS 7 Hotspot Diagnostics (DEV ONLY)</span>
+            <span style="background:#27272a; padding:2px 6px; border-radius:6px; color:#a1a1aa; font-size:10px;">lab inspection</span>
+        </div>
+        <div id="diag-content"></div>
+    </div>
+
+    <!-- محرك ذكي ومتكامل لمعالجة بيانات RouterOS 7 واليوزر مانجر -->
+    <script>
+        (function() {
+            // 1. جدول باقات شبكة AK Net الرسمية (بما فيها الباقات الكبيرة مع Gigawords)
+            var PACKAGES = {
+                '200RY': { name: 'باقة 200 ريال', bytes: 838860800, timeSecs: 86400, label: '800 ميغابايت (24 ساعة)', price: '200 ريال' },
+                '500RY': { name: 'باقة 500 ريال', bytes: 2147483648, timeSecs: 259200, label: '2 جيجابايت (3 أيام)', price: '500 ريال' },
+                '1000RY': { name: 'باقة 1,000 ريال', bytes: 5368709120, timeSecs: 604800, label: '5 جيجابايت (7 أيام)', price: '1,000 ريال' },
+                '3000RY': { name: 'باقة 3,000 ريال', bytes: 19327352832, timeSecs: 1209600, label: '18 جيجابايت (14 يوم)', price: '3,000 ريال' },
+                '6000RY': { name: 'باقة 6,000 ريال', bytes: 42949672960, timeSecs: 2592000, label: '40 جيجابايت (30 يوم)', price: '6,000 ريال' },
+                '10000RY': { name: 'باقة 10,000 ريال', bytes: 85899345920, timeSecs: 2592000, label: '80 جيجابايت (30 يوم)', price: '10,000 ريال' },
+                '20000RY': { name: 'باقة 20,000 ريال', bytes: 182536110080, timeSecs: 2592000, label: '170 جيجابايت (30 يوم)', price: '20,000 ريال' }
+            };
+
+            // 2. قراءة متغيرات MikroTik RouterOS 7 الرسمية وسمات RADIUS المعتمدة
+            var ros = {
+                username: "$(username)",
+                ip: "$(ip)",
+                mac: "$(mac)",
+                uptime: "$(uptime)",
+                uptimeSecs: parseInt("$(uptime-secs)", 10) || 0,
+
+                // متغيرات وقت الجلسة
+                sessionTimeLeft: "$(session-time-left)",
+                sessionTimeLeftSecs: parseInt("$(session-time-left-secs)", 10) || 0,
+                sessionTimeout: "$(session-timeout)",
+                sessionTimeoutSecs: parseInt("$(session-timeout-secs)", 10) || 0,
+                idleTimeout: "$(idle-timeout)",
+                idleTimeoutSecs: parseInt("$(idle-timeout-secs)", 10) || 0,
+
+                // عدادات استهلاك الجلسة الحالية
+                bytesIn: parseInt("$(bytes-in)", 10) || 0,
+                bytesOut: parseInt("$(bytes-out)", 10) || 0,
+                bytesInNice: "$(bytes-in-nice)",
+                bytesOutNice: "$(bytes-out-nice)",
+                bytesTotalNice: "$(bytes-total-nice)",
+
+                // حدود الرصيد الرسمية في RouterOS Hotspot
+                remainBytesTotal: "$(remain-bytes-total)",
+                remainBytesIn: "$(remain-bytes-in)",
+                remainBytesOut: "$(remain-bytes-out)",
+                limitBytesTotal: "$(limit-bytes-total)",
+                limitBytesIn: "$(limit-bytes-in)",
+                limitBytesOut: "$(limit-bytes-out)",
+
+                // سمات MikroTik RADIUS الرسمية (Vendor ID: 14988)
+                // VSA 17 (Low) & VSA 18 (Gigawords): إجمالي حجم البيانات
+                radiusTotalLimitLow: parseInt("$(radius17-14988u)", 10) || 0,
+                radiusTotalLimitGiga: parseInt("$(radius18-14988u)", 10) || 0,
+
+                // VSA 1 (Low) & VSA 14 (Gigawords): حد التنزيل (Recv)
+                radiusRecvLimitLow: parseInt("$(radius1-14988u)", 10) || 0,
+                radiusRecvLimitGiga: parseInt("$(radius14-14988u)", 10) || 0,
+
+                // VSA 2 (Low) & VSA 15 (Gigawords): حد الرفع (Xmit)
+                radiusXmitLimitLow: parseInt("$(radius2-14988u)", 10) || 0,
+                radiusXmitLimitGiga: parseInt("$(radius15-14988u)", 10) || 0,
+
+                // VSA 3: المجموعة (Group)
+                radiusGroup: "$(radius3-14988)",
+
+                // VSA 8: تحديد السرعة (Rate-Limit)
+                radiusRateLimit: "$(radius8-14988)",
+
+                // سمات RADIUS القياسية (RFC 2865)
+                radiusClass: "$(radius25)",
+                radiusSessionTimeout: parseInt("$(radius27u)", 10) || 0,
+
+                // المضيف والعناوين
+                hostname: "$(hostname)",
+                linkStatus: "$(link-status)",
+                linkLogout: "$(link-logout)"
+            };
+
+            // 3. التحقق من صحة القيمة وعدم كونها قالباً فارغاً أو غير معوض
+            function isValid(val) {
+                if (val === null || val === undefined) return false;
+                var s = String(val).trim();
+                if (s === '' || s === '---' || s.indexOf('$(') !== -1 || /^\$[A-Za-z]/.test(s)) {
+                    return false;
+                }
+                return true;
+            }
+
+            function parseBytes(val) {
+                if (!isValid(val)) return null;
+                var num = parseFloat(val);
+                return isNaN(num) ? null : num;
+            }
+
+            // 4. دالة موثوقة لتحليل صيغ وقت RouterOS المختلفة (ثوانٍ، دقائق، ساعات، أيام، أسابيع)
+            function parseRouterOSTime(str) {
+                if (!isValid(str)) return 0;
+                str = String(str).trim();
+                if (/^\d+$/.test(str)) return parseInt(str, 10);
+
+                var totalSecs = 0;
+                var s = str;
+
+                // أسابيع (e.g. 1w)
+                var w = s.match(/^(\d+)\s*w\s*/i);
+                if (w) {
+                    totalSecs += parseInt(w[1], 10) * 604800;
+                    s = s.slice(w[0].length);
+                }
+
+                // أيام (e.g. 2d أو 1d02:30:45)
+                var d = s.match(/^(\d+)\s*d\s*/i);
+                if (d) {
+                    totalSecs += parseInt(d[1], 10) * 86400;
+                    s = s.slice(d[0].length);
+                }
+
+                // صيغة النقطتين HH:MM:SS أو HH:MM
+                var colon = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+                if (colon) {
+                    var h = parseInt(colon[1], 10) || 0;
+                    var m = parseInt(colon[2], 10) || 0;
+                    var sec = colon[3] !== undefined ? parseInt(colon[3], 10) : 0;
+                    totalSecs += (h * 3600) + (m * 60) + sec;
+                    return totalSecs;
+                }
+
+                // صيغ الأحرف: Xh Ym Zs
+                var matched = false;
+                var hMatch = s.match(/(\d+)\s*h/i);
+                if (hMatch) { totalSecs += parseInt(hMatch[1], 10) * 3600; matched = true; }
+
+                var mMatch = s.match(/(\d+)\s*m(?!s)/i);
+                if (mMatch) { totalSecs += parseInt(mMatch[1], 10) * 60; matched = true; }
+
+                var sMatch = s.match(/(\d+)\s*s/i);
+                if (sMatch) { totalSecs += parseInt(sMatch[1], 10); matched = true; }
+
+                if (matched || totalSecs > 0) return totalSecs;
+                return 0;
+            }
+
+            // 5. تنسيق البيانات باللغة العربية بدقة وأمان
+            function formatBytesArabic(bytes) {
+                if (bytes === null || bytes === undefined || isNaN(bytes)) return "غير محدد";
+                bytes = Math.max(0, Number(bytes));
+                if (bytes === 0) return "0 ميغابايت";
+
+                var units = ["بايت", "كيلوبايت", "ميغابايت", "جيجابايت", "تيرابايت"];
+                var e = Math.floor(Math.log(bytes) / Math.log(1024));
+                if (e < 0) e = 0;
+                if (e >= units.length) e = units.length - 1;
+
+                var val = (bytes / Math.pow(1024, e)).toFixed(2);
+                val = val.replace(/\.00$/, '').replace(/(\.[1-9])0$/, '$1');
+                return val + " " + units[e];
+            }
+
+            // 6. تنسيق الوقت باللغة العربية
+            function formatTimeArabic(sec) {
+                if (sec <= 0 || isNaN(sec)) return "منتهي أو غير محدد";
+                sec = Math.floor(sec);
+                var d = Math.floor(sec / 86400);
+                var h = Math.floor((sec % 86400) / 3600);
+                var m = Math.floor((sec % 3600) / 60);
+                var s = sec % 60;
+                var parts = [];
+
+                if (d > 0) parts.push(d + (d === 1 ? " يوم" : (d === 2 ? " يومين" : (d <= 10 ? " أيام" : " يوماً"))));
+                if (h > 0) parts.push(h + (h === 1 ? " ساعة" : (h === 2 ? " ساعتين" : (h <= 10 ? " ساعات" : " ساعة"))));
+                if (m > 0 && d === 0) parts.push(m + (m === 1 ? " دقيقة" : (m === 2 ? " دقيقتين" : (m <= 10 ? " دقائق" : " دقيقة"))));
+                if (d === 0 && h === 0 && s > 0) parts.push(s + (s <= 10 ? " ثوانٍ" : " ثانية"));
+
+                if (parts.length === 0) return "أقل من دقيقة";
+                return parts.join(" و ");
+            }
+
+            function formatDuration(sec) {
+                sec = Math.max(0, Math.floor(sec));
+                var h = Math.floor(sec / 3600);
+                var m = Math.floor((sec % 3600) / 60);
+                var s = sec % 60;
+                var pad = function(n) { return (n < 10 ? "0" : "") + n; };
+                return (h > 0 ? h + ":" : "") + pad(m) + ":" + pad(s);
+            }
+
+            // 7. حساب حدود RADIUS بدقة 64-bit مع دعم Gigawords (الباقات الأكبر من 4GB)
+            var GIGAWORD_BYTES = 4294967296; // 2^32 bytes
+
+            var totalRadiusLimit = 0;
+            if (ros.radiusTotalLimitGiga > 0 || ros.radiusTotalLimitLow > 0) {
+                totalRadiusLimit = (ros.radiusTotalLimitGiga * GIGAWORD_BYTES) + ros.radiusTotalLimitLow;
+            }
+
+            var recvRadiusLimit = 0;
+            if (ros.radiusRecvLimitGiga > 0 || ros.radiusRecvLimitLow > 0) {
+                recvRadiusLimit = (ros.radiusRecvLimitGiga * GIGAWORD_BYTES) + ros.radiusRecvLimitLow;
+            }
+
+            // 8. التعرف على الباقة المعتمدة دون افتراضات خاطئة
+            var currentPkgKey = null;
+            var activePkg = null;
+
+            var rGroup = isValid(ros.radiusGroup) ? String(ros.radiusGroup).toUpperCase() : '';
+            var rClass = isValid(ros.radiusClass) ? String(ros.radiusClass).toUpperCase() : '';
+
+            // أ) مطابقة اسم المجموعة أو الـ Class مع جدول الباقات
+            for (var k in PACKAGES) {
+                if ((rGroup && rGroup.indexOf(k) !== -1) || (rClass && rClass.indexOf(k) !== -1)) {
+                    currentPkgKey = k;
+                    activePkg = PACKAGES[k];
+                    break;
+                }
+            }
+
+            // ب) مطابقة إجمالي السعة بالبايت عند وجود سمات RADIUS مع مجموعة عامة (مثل default)
+            if (!activePkg && (totalRadiusLimit > 0 || recvRadiusLimit > 0)) {
+                var matchLimit = totalRadiusLimit || recvRadiusLimit;
+                for (var pk in PACKAGES) {
+                    if (PACKAGES[pk].bytes === matchLimit) {
+                        currentPkgKey = pk;
+                        activePkg = PACKAGES[pk];
+                        break;
+                    }
+                }
+            }
+
+            // ج) إذا كانت المجموعة معروفة في RADIUS ولكنها غير مسجلة في جدول الباقات السبعة
+            if (!activePkg && isValid(ros.radiusGroup)) {
+                activePkg = {
+                    name: ros.radiusGroup,
+                    label: 'فئة خاصة: ' + ros.radiusGroup,
+                    bytes: totalRadiusLimit || 0,
+                    timeSecs: ros.radiusSessionTimeout || 0,
+                    price: ''
+                };
+            }
+
+            // 9. المتغيرات الحسابية الأساسية
+            // حساب الاستهلاك الفعلي للجلسة الحالية من العدادات الرسمية المدعومة فقط
+            var sessionUsedBytes = ros.bytesIn + ros.bytesOut;
+            var currentUptimeSecs = ros.uptimeSecs || parseRouterOSTime(ros.uptime) || 0;
+            var remainingSecs = 0;
+            var hasSessionTimeLeft = false;
+            var isExpiredSession = false;
+
+            function updateDashboard() {
+                // تحديث شارة الباقة واسمها عبر textContent لمنع أي ثغرات حقن
+                var pkgBadgeText = document.getElementById('active-pkg-text');
+                var modalPkgName = document.getElementById('modal-pkg-name');
+
+                if (pkgBadgeText) {
+                    pkgBadgeText.textContent = activePkg ? activePkg.name + ' (' + activePkg.label + ')' : 'حساب يوزر مانجر';
+                }
+                if (modalPkgName) {
+                    modalPkgName.textContent = activePkg ? activePkg.name + (activePkg.label ? ' - ' + activePkg.label : '') : 'يوزر مانجر (بدون فئة محددة)';
+                }
+
+                // أ. استهلاك الجلسة الحالية
+                var dataUsedEl = document.getElementById('data-used');
+                var dataUsedSubEl = document.getElementById('data-used-sub');
+                var downloadValEl = document.getElementById('download-val');
+                var uploadValEl = document.getElementById('upload-val');
+                var modalSessionUsed = document.getElementById('modal-session-used');
+
+                var downFormatted = isValid(ros.bytesOutNice) ? ros.bytesOutNice : formatBytesArabic(ros.bytesOut);
+                var upFormatted = isValid(ros.bytesInNice) ? ros.bytesInNice : formatBytesArabic(ros.bytesIn);
+                var totalSessionFormatted = formatBytesArabic(sessionUsedBytes);
+
+                if (dataUsedEl) dataUsedEl.textContent = totalSessionFormatted;
+                if (dataUsedSubEl) dataUsedSubEl.textContent = "تنزيل: " + downFormatted + " | رفع: " + upFormatted;
+                if (downloadValEl) downloadValEl.textContent = downFormatted;
+                if (uploadValEl) uploadValEl.textContent = upFormatted;
+                if (modalSessionUsed) modalSessionUsed.textContent = totalSessionFormatted;
+
+                // ب. حساب الرصيد المتبقي بدقة وموثوقية ودون جمع الحدود المستقلة
+                var rawRemTotal = parseBytes(ros.remainBytesTotal);
+                var rawRemOut = parseBytes(ros.remainBytesOut);
+                var rawRemIn = parseBytes(ros.remainBytesIn);
+                var rawLimitTotal = parseBytes(ros.limitBytesTotal);
+                var rawLimitOut = parseBytes(ros.limitBytesOut);
+                var rawLimitIn = parseBytes(ros.limitBytesIn);
+
+                // فحص الحساب المفتوح صراحة
+                var isExplicitUnlimited = (ros.remainBytesTotal === '---' || ros.limitBytesTotal === '---') ||
+                                          (ros.remainBytesOut === '---' && ros.remainBytesIn === '---' && ros.limitBytesOut === '---' && ros.limitBytesIn === '---');
+
+                var dataRemEl = document.getElementById('data-rem');
+                var dataRemSubEl = document.getElementById('data-rem-sub');
+                var pkgTotalEl = document.getElementById('package-total-val');
+                var modalPkgTotal = document.getElementById('modal-pkg-total');
+                var modalPkgRem = document.getElementById('modal-pkg-rem');
+                var progressBox = document.getElementById('progress-box');
+
+                if (rawRemTotal !== null) {
+                    // الأولوية 1: متغير الرصيد الكلي المتبقي $(remain-bytes-total)
+                    if (rawRemTotal <= 0) {
+                        dataRemEl.textContent = "0 ميغابايت (منتهي)";
+                        dataRemSubEl.textContent = "تم استهلاك الرصيد بالكامل";
+                        modalPkgRem.textContent = "0 ميغابايت (الرصيد منتهي)";
+                        if (progressBox) progressBox.style.display = 'none';
+                    } else {
+                        dataRemEl.textContent = formatBytesArabic(rawRemTotal);
+                        modalPkgRem.textContent = formatBytesArabic(rawRemTotal);
+
+                        var totalQ = rawLimitTotal || totalRadiusLimit || (activePkg ? activePkg.bytes : 0);
+                        if (totalQ > 0 && totalQ >= rawRemTotal) {
+                            dataRemSubEl.textContent = "متبقي من " + formatBytesArabic(totalQ);
+                            pkgTotalEl.textContent = formatBytesArabic(totalQ);
+                            modalPkgTotal.textContent = formatBytesArabic(totalQ);
+
+                            var usedQ = Math.max(0, totalQ - rawRemTotal);
+                            var pct = Math.min(100, Math.max(0, Math.round((usedQ / totalQ) * 100)));
+                            renderProgressBar(pct, 100 - pct, usedQ, totalQ);
+                        } else {
+                            dataRemSubEl.textContent = "رصيد متبقي موثّق";
+                            pkgTotalEl.textContent = formatBytesArabic(rawRemTotal);
+                            modalPkgTotal.textContent = formatBytesArabic(rawRemTotal);
+                            if (progressBox) progressBox.style.display = 'none';
+                        }
+                    }
+                } else if (rawRemOut !== null && rawRemIn === null) {
+                    // الأولوية 2: الحساب محدد بالتنزيل فقط
+                    if (rawRemOut <= 0) {
+                        dataRemEl.textContent = "0 ميغابايت (تنزيل منتهي)";
+                        dataRemSubEl.textContent = "تم استهلاك حصة التنزيل بالكامل";
+                        modalPkgRem.textContent = "0 ميغابايت (حصة التنزيل منتهية)";
+                        if (progressBox) progressBox.style.display = 'none';
+                    } else {
+                        dataRemEl.textContent = formatBytesArabic(rawRemOut);
+                        dataRemSubEl.textContent = "المتبقي من حصة التنزيل";
+                        modalPkgRem.textContent = formatBytesArabic(rawRemOut) + " (تنزيل)";
+
+                        var totalQ = rawLimitOut || recvRadiusLimit || (activePkg ? activePkg.bytes : 0);
+                        if (totalQ > 0 && totalQ >= rawRemOut) {
+                            pkgTotalEl.textContent = formatBytesArabic(totalQ);
+                            modalPkgTotal.textContent = formatBytesArabic(totalQ);
+                            var usedQ = Math.max(0, totalQ - rawRemOut);
+                            var pct = Math.min(100, Math.max(0, Math.round((usedQ / totalQ) * 100)));
+                            renderProgressBar(pct, 100 - pct, usedQ, totalQ);
+                        } else {
+                            pkgTotalEl.textContent = formatBytesArabic(rawRemOut);
+                            modalPkgTotal.textContent = formatBytesArabic(rawRemOut);
+                            if (progressBox) progressBox.style.display = 'none';
+                        }
+                    }
+                } else if (rawRemIn !== null && rawRemOut === null) {
+                    // الأولوية 3: الحساب محدد بالرفع فقط
+                    if (rawRemIn <= 0) {
+                        dataRemEl.textContent = "0 ميغابايت (رفع منتهي)";
+                        dataRemSubEl.textContent = "تم استهلاك حصة الرفع بالكامل";
+                        modalPkgRem.textContent = "0 ميغابايت (حصة الرفع منتهية)";
+                    } else {
+                        dataRemEl.textContent = formatBytesArabic(rawRemIn);
+                        dataRemSubEl.textContent = "المتبقي من حصة الرفع";
+                        modalPkgRem.textContent = formatBytesArabic(rawRemIn) + " (رفع)";
+                    }
+                    if (progressBox) progressBox.style.display = 'none';
+                } else if (rawRemOut !== null && rawRemIn !== null) {
+                    // الأولوية 4: كلاهما محدد بشكل مستقل - يُعرضان بشكل منفصل دون جمعهما رياضياً
+                    if (rawRemOut <= 0 || rawRemIn <= 0) {
+                        dataRemEl.textContent = "0 ميغابايت (منتهي)";
+                        dataRemSubEl.textContent = (rawRemOut <= 0 ? "نفد رصيد التنزيل" : "نفد رصيد الرفع");
+                        modalPkgRem.textContent = "تنزيل: " + formatBytesArabic(rawRemOut) + " | رفع: " + formatBytesArabic(rawRemIn);
+                    } else {
+                        dataRemEl.textContent = formatBytesArabic(Math.min(rawRemOut, rawRemIn));
+                        dataRemSubEl.textContent = "تنزيل: " + formatBytesArabic(rawRemOut) + " | رفع: " + formatBytesArabic(rawRemIn);
+                        modalPkgRem.textContent = "تنزيل متبقي: " + formatBytesArabic(rawRemOut) + " | رفع متبقي: " + formatBytesArabic(rawRemIn);
+                    }
+                    if (progressBox) progressBox.style.display = 'none';
+                } else if (isExplicitUnlimited && totalRadiusLimit === 0 && (!activePkg || activePkg.bytes === 0)) {
+                    // الحالة 5: حساب غير محدود صراحة
+                    dataRemEl.textContent = "غير محدود";
+                    dataRemSubEl.textContent = "رصيد مفتوح بدون قيود";
+                    pkgTotalEl.textContent = "غير محدود";
+                    modalPkgTotal.textContent = "باقة مفتوحة (غير محدودة)";
+                    modalPkgRem.textContent = "رصيد مفتوح بدون قيود";
+                    if (progressBox) progressBox.style.display = 'none';
+                } else if (totalRadiusLimit > 0 || (activePkg && activePkg.bytes > 0)) {
+                    // الحالة 6: سعة الباقة معروفة، ولكن اليوزر مانجر يتتبع الرصيد المتبقي على مستوى السيرفر (User Manager v7)
+                    var planCapacity = totalRadiusLimit || activePkg.bytes;
+                    dataRemEl.textContent = "يُدار عبر السيرفر";
+                    dataRemSubEl.textContent = "تتبع حي عبر User Manager";
+                    pkgTotalEl.textContent = formatBytesArabic(planCapacity);
+                    modalPkgTotal.textContent = formatBytesArabic(planCapacity);
+                    modalPkgRem.textContent = "يُدار بالسيرفر (إجمالي السعة: " + formatBytesArabic(planCapacity) + ")";
+                    if (progressBox) progressBox.style.display = 'none';
+                } else {
+                    // الحالة 7: لا تتوفر معلومات الحصة في هذه الجلسة
+                    dataRemEl.textContent = "يُدار عبر السيرفر";
+                    dataRemSubEl.textContent = "حسب اشتراك الحساب";
+                    pkgTotalEl.textContent = "تتبع عبر User Manager";
+                    modalPkgTotal.textContent = "حسب صلاحية السيرفر";
+                    modalPkgRem.textContent = "غير متاح في الجلسة الحالية";
+                    if (progressBox) progressBox.style.display = 'none';
+                }
+
+                // ج. حساب صلاحية الوقت للجلسة الحالية بدقة وبدون طرح مزدوج
+                remainingSecs = 0;
+                hasSessionTimeLeft = false;
+                isExpiredSession = false;
+
+                if (ros.sessionTimeLeftSecs > 0) {
+                    // RouterOS يعطي الثواني المتبقية للجلسة مباشرة
+                    remainingSecs = ros.sessionTimeLeftSecs;
+                    hasSessionTimeLeft = true;
+                } else if (isValid(ros.sessionTimeLeft)) {
+                    var parsedLeft = parseRouterOSTime(ros.sessionTimeLeft);
+                    if (parsedLeft > 0) {
+                        remainingSecs = parsedLeft;
+                        hasSessionTimeLeft = true;
+                    } else if (parsedLeft === 0) {
+                        isExpiredSession = true;
+                    }
+                } else if (ros.sessionTimeoutSecs > 0) {
+                    // سقف الجلسة مطروحاً منه مدة الاتصال المنقضية (طرح لمرة واحدة فقط)
+                    if (ros.sessionTimeoutSecs > currentUptimeSecs) {
+                        remainingSecs = ros.sessionTimeoutSecs - currentUptimeSecs;
+                        hasSessionTimeLeft = true;
+                    } else {
+                        isExpiredSession = true;
+                    }
+                } else if (ros.radiusSessionTimeout > 0) {
+                    // سمة Session-Timeout من RADIUS
+                    if (ros.radiusSessionTimeout > currentUptimeSecs) {
+                        remainingSecs = ros.radiusSessionTimeout - currentUptimeSecs;
+                        hasSessionTimeLeft = true;
+                    } else {
+                        isExpiredSession = true;
+                    }
+                }
+
+                updateTimeDisplay(isExpiredSession);
+
+                // تحديث عداد مدة الاتصال الأولي
+                var uptimeEl = document.getElementById('uptime-display');
+                var uptimeSubEl = document.getElementById('uptime-sub');
+                if (uptimeEl && currentUptimeSecs > 0) {
+                    uptimeEl.textContent = formatDuration(currentUptimeSecs);
+                    if (uptimeSubEl) uptimeSubEl.textContent = "متصل: " + formatDuration(currentUptimeSecs);
+                }
+            }
+
+            function renderProgressBar(percentUsed, percentLeft, usedBytes, totalBytes) {
+                var progressBox = document.getElementById('progress-box');
+                if (!progressBox) return;
+
+                progressBox.style.display = 'block';
+                var progressBar = document.getElementById('progress-bar-fill');
+                var percentText = document.getElementById('progress-percent-text');
+                var usedText = document.getElementById('progress-used-text');
+                var totalText = document.getElementById('progress-total-text');
+
+                if (progressBar) progressBar.style.width = percentUsed + '%';
+                if (percentText) percentText.textContent = "مستهلك " + percentUsed + "% (متبقي " + percentLeft + "%)";
+                if (usedText) usedText.textContent = "المستهلك: " + formatBytesArabic(usedBytes);
+                if (totalText) totalText.textContent = "الباقة: " + formatBytesArabic(totalBytes);
+
+                if (progressBar) {
+                    if (percentUsed >= 90) {
+                        progressBar.style.background = 'linear-gradient(90deg, #ef5350 0%, #c62828 100%)';
+                    } else if (percentUsed >= 75) {
+                        progressBar.style.background = 'linear-gradient(90deg, #ffa726 0%, #ef6c00 100%)';
+                    } else {
+                        progressBar.style.background = 'linear-gradient(90deg, #4caf50 0%, #2e7d32 100%)';
+                    }
+                }
+            }
+
+            function updateTimeDisplay(isExpired) {
+                var timeRemEl = document.getElementById('time-rem');
+                var timeRemSubEl = document.getElementById('time-rem-sub');
+
+                if (hasSessionTimeLeft && remainingSecs > 0) {
+                    timeRemEl.textContent = formatTimeArabic(remainingSecs);
+                    timeRemSubEl.textContent = "المتبقي للجلسة: " + formatDuration(remainingSecs);
+                } else if (isExpired || (hasSessionTimeLeft && remainingSecs <= 0)) {
+                    timeRemEl.textContent = "انتهت الجلسة";
+                    timeRemSubEl.textContent = "مهلة الاتصال منتهية";
+                } else if (activePkg && activePkg.timeSecs > 0) {
+                    var durLabel = activePkg.label.indexOf('(') !== -1 ? activePkg.label.split('(')[1].replace(')', '') : activePkg.label;
+                    timeRemEl.textContent = "صلاحية الباقة: " + durLabel;
+                    timeRemSubEl.textContent = "تُحسب من أول تفعيل بالسيرفر";
+                } else {
+                    timeRemEl.textContent = "مفتوح / غير محدد";
+                    timeRemSubEl.textContent = "حسب صلاحية الكرت بالسيرفر";
+                }
+            }
+
+            // تشغيل التحديث الأولي للواجهة
+            updateDashboard();
+
+            // عداد حي متزامن في الوقت الحقيقي (Live Ticking)
+            var uptimeEl = document.getElementById('uptime-display');
+            var uptimeSubEl = document.getElementById('uptime-sub');
+
+            setInterval(function() {
+                currentUptimeSecs++;
+                if (uptimeEl) uptimeEl.textContent = formatDuration(currentUptimeSecs);
+                if (uptimeSubEl) uptimeSubEl.textContent = "متصل: " + formatDuration(currentUptimeSecs);
+
+                if (hasSessionTimeLeft && remainingSecs > 0) {
+                    remainingSecs--;
+                    updateTimeDisplay(remainingSecs <= 0);
+                }
+            }, 1000);
+        })();
+
+        // دوال التحكم بالنوافذ المنبثقة (Modals)
+        function openModal(id) {
+            var m = document.getElementById(id + '-modal');
+            if (m) m.classList.add('active');
+        }
+
+        function closeModal(id) {
+            var m = document.getElementById(id + '-modal');
+            if (m) m.classList.remove('active');
+        }
+
+        document.querySelectorAll('.modal-overlay').forEach(function(m) {
+            m.addEventListener('click', function(e) {
+                if (e.target === m) m.classList.remove('active');
+            });
+        });
+
+        // توليد الجزيئات المتحركة
+        function createParticles() {
+            var container = document.getElementById('particles');
+            if (!container) return;
+            for (var i = 0; i < 28; i++) {
+                var particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.width = (Math.random() * 4 + 3) + 'px';
+                particle.style.height = particle.style.width;
+                particle.style.left = (Math.random() * 100) + '%';
+                particle.style.bottom = (Math.random() * 100) + '%';
+                particle.style.animationDelay = (Math.random() * 15) + 's';
+                particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
+                container.appendChild(particle);
+            }
+        }
+        createParticles();
+    </script>
+
+</body>
+</html>

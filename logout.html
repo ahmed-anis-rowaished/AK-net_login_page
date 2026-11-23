@@ -296,7 +296,7 @@
                 </div>
                 <div class="info-row">
                     <span class="info-label">إجمالي الاستهلاك:</span>
-                    <span class="info-value">$(bytes-total-nice)</span>
+                    <span class="info-value" id="logout-bytes-total">$(bytes-total-nice)</span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">تنزيل / رفع:</span>
@@ -330,6 +330,15 @@
     </div>
 
     <script>
+        (function() {
+            var el = document.getElementById('logout-bytes-total');
+            if (el) {
+                var s = el.textContent || '';
+                if (s.indexOf('$(') !== -1 || s.trim() === '') {
+                    el.textContent = 'موضح أدناه (تنزيل / رفع)';
+                }
+            }
+        })();
         // إنشاء الجزيئات المتحركة
         function createParticles() {
             var container = document.getElementById('particles');

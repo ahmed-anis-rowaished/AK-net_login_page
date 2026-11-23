@@ -104,10 +104,10 @@
     <script>
         function getRedirectTarget() {
             var target = '$(link-redirect)';
-            if (!target || target === '' || target.indexOf('$(') !== -1) {
+            if (!target || target === '' || target.indexOf('$(') !== -1 || /^javascript:/i.test(target.trim())) {
                 target = '$(link-status)';
             }
-            if (!target || target === '' || target.indexOf('$(') !== -1) {
+            if (!target || target === '' || target.indexOf('$(') !== -1 || /^javascript:/i.test(target.trim())) {
                 target = 'status.html';
             }
             return target;
