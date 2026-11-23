@@ -821,10 +821,19 @@
         </div>
     </div>
 
+    <!-- لوحة تشخيصية تفصيلية لبيانات RouterOS 7 (تظهر فقط عند إضافة ?debug=1 في الرابط) -->
+    <div class="diag-panel" id="diag-panel" style="display:none; max-width:480px; margin:20px auto; background:#18181b; color:#f4f4f5; padding:16px; border-radius:14px; font-family:Consolas, Monaco, monospace; font-size:11px; direction:ltr; text-align:left; border:1px solid #3f3f46; box-shadow:0 10px 30px rgba(0,0,0,0.35);">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #3f3f46; padding-bottom:8px; margin-bottom:10px;">
+            <span style="color:#22c55e; font-weight:700; font-size:12px;">🛠️ RouterOS 7 Hotspot Diagnostics</span>
+            <span style="background:#27272a; padding:2px 6px; border-radius:6px; color:#a1a1aa; font-size:10px;">mode: ?debug=1</span>
+        </div>
+        <div id="diag-content"></div>
+    </div>
+
     <!-- محرك ذكي ومتكامل لمعالجة بيانات RouterOS 7 واليوزر مانجر -->
     <script>
         (function() {
-            // تعريف جدول باقات شبكة AK Net الرسمية
+            // 1. جدول باقات شبكة AK Net الرسمية (بما فيها الباقات العملاقة 40GB, 80GB, 170GB)
             var PACKAGES = {
                 '200RY': { name: 'باقة 200 ريال', bytes: 838860800, timeSecs: 86400, label: '800 ميغابايت (24 ساعة)', price: '200 ريال' },
                 '500RY': { name: 'باقة 500 ريال', bytes: 2147483648, timeSecs: 259200, label: '2 جيجابايت (3 أيام)', price: '500 ريال' },
@@ -835,7 +844,7 @@
                 '20000RY': { name: 'باقة 20,000 ريال', bytes: 182536110080, timeSecs: 2592000, label: '170 جيجابايت (30 يوم)', price: '20,000 ريال' }
             };
 
-            // قراءة كافة متغيرات ميكروتك من السيرفر
+            // 2. قراءة متغيرات MikroTik RouterOS 7 الرسمية وسمات RADIUS المعتمدة
             var ros = {
                 username: "$(username)",
                 ip: "$(ip)",
@@ -843,31 +852,57 @@
                 uptime: "$(uptime)",
                 uptimeSecs: parseInt("$(uptime-secs)", 10) || 0,
 
-                // متغيرات الوقت
+                // متغيرات وقت الجلسة
                 sessionTimeLeft: "$(session-time-left)",
                 sessionTimeLeftSecs: parseInt("$(session-time-left-secs)", 10) || 0,
                 sessionTimeout: "$(session-timeout)",
                 sessionTimeoutSecs: parseInt("$(session-timeout-secs)", 10) || 0,
-                radiusSessionTimeout: parseInt("$(radius27u)", 10) || 0,
+                idleTimeout: "$(idle-timeout)",
+                idleTimeoutSecs: parseInt("$(idle-timeout-secs)", 10) || 0,
 
-                // عدادات البيانات
+                // عدادات استهلاك الجلسة الحالية
                 bytesIn: parseInt("$(bytes-in)", 10) || 0,
                 bytesOut: parseInt("$(bytes-out)", 10) || 0,
                 bytesInNice: "$(bytes-in-nice)",
                 bytesOutNice: "$(bytes-out-nice)",
                 bytesTotalNice: "$(bytes-total-nice)",
 
-                // حدود الرصيد من الراوتر والراديوس
-                remainBytesTotal: parseInt("$(remain-bytes-total)", 10) || 0,
-                remainBytesTotalNice: "$(remain-bytes-total-nice)",
-                limitBytesTotal: parseInt("$(limit-bytes-total)", 10) || 0,
-                limitBytesOut: parseInt("$(limit-bytes-out)", 10) || 0,
-                radiusTotalLimit: parseInt("$(radius17-14988u)", 10) || 0,
+                // حدود الرصيد الرسمية في RouterOS Hotspot
+                remainBytesIn: "$(remain-bytes-in)",
+                remainBytesOut: "$(remain-bytes-out)",
+                limitBytesIn: "$(limit-bytes-in)",
+                limitBytesOut: "$(limit-bytes-out)",
+
+                // سمات MikroTik RADIUS الرسمية (Vendor ID: 14988)
+                // VSA 17 (Low) & VSA 18 (Gigawords): إجمالي حجم البيانات
+                radiusTotalLimitLow: parseInt("$(radius17-14988u)", 10) || 0,
+                radiusTotalLimitGiga: parseInt("$(radius18-14988u)", 10) || 0,
+
+                // VSA 1 (Low) & VSA 14 (Gigawords): حد التنزيل (Recv)
+                radiusRecvLimitLow: parseInt("$(radius1-14988u)", 10) || 0,
+                radiusRecvLimitGiga: parseInt("$(radius14-14988u)", 10) || 0,
+
+                // VSA 2 (Low) & VSA 15 (Gigawords): حد الرفع (Xmit)
+                radiusXmitLimitLow: parseInt("$(radius2-14988u)", 10) || 0,
+                radiusXmitLimitGiga: parseInt("$(radius15-14988u)", 10) || 0,
+
+                // VSA 3: المجموعة (Group)
                 radiusGroup: "$(radius3-14988)",
+
+                // VSA 8: تحديد السرعة (Rate-Limit)
+                radiusRateLimit: "$(radius8-14988)",
+
+                // سمات RADIUS القياسية (RFC 2865)
                 radiusClass: "$(radius25)",
-                hostname: "$(hostname)"
+                radiusSessionTimeout: parseInt("$(radius27u)", 10) || 0,
+
+                // المضيف والعناوين
+                hostname: "$(hostname)",
+                linkStatus: "$(link-status)",
+                linkLogout: "$(link-logout)"
             };
 
+            // 3. التحقق من صحة القيمة وعدم كونها قالباً فارغاً أو غير مدعوم
             function isValid(val) {
                 if (val === null || val === undefined) return false;
                 var s = String(val).trim();
@@ -877,46 +912,77 @@
                 return true;
             }
 
+            function parseBytes(val) {
+                if (!isValid(val)) return null;
+                var num = parseFloat(val);
+                return isNaN(num) ? null : num;
+            }
+
+            // 4. دالة موثوقة لتحليل صيغ وقت RouterOS المختلفة (ثوانٍ، دقائق، ساعات، أيام، أسابيع)
             function parseRouterOSTime(str) {
                 if (!isValid(str)) return 0;
                 str = String(str).trim();
                 if (/^\d+$/.test(str)) return parseInt(str, 10);
-                var total = 0;
-                var colonMatch = str.match(/^(?:(\d+)\s*[dD])?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
-                if (colonMatch) {
-                    var d = parseInt(colonMatch[1] || '0', 10);
-                    var h = parseInt(colonMatch[2] || '0', 10);
-                    var m = parseInt(colonMatch[3] || '0', 10);
-                    var s = parseInt(colonMatch[4] || '0', 10);
-                    return d * 86400 + h * 3600 + m * 60 + s;
+
+                var totalSecs = 0;
+                var s = str;
+
+                // أسابيع (e.g. 1w)
+                var w = s.match(/^(\d+)\s*w\s*/i);
+                if (w) {
+                    totalSecs += parseInt(w[1], 10) * 604800;
+                    s = s.slice(w[0].length);
                 }
-                if (/[wdhms]/i.test(str)) {
-                    var wMatch = str.match(/(\d+)\s*w/i);
-                    var dMatch = str.match(/(\d+)\s*d/i);
-                    var hMatch = str.match(/(\d+)\s*h/i);
-                    var mMatch = str.match(/(\d+)\s*m(?!s)/i);
-                    var sMatch = str.match(/(\d+)\s*s/i);
-                    if (wMatch) total += parseInt(wMatch[1], 10) * 604800;
-                    if (dMatch) total += parseInt(dMatch[1], 10) * 86400;
-                    if (hMatch) total += parseInt(hMatch[1], 10) * 3600;
-                    if (mMatch) total += parseInt(mMatch[1], 10) * 60;
-                    if (sMatch) total += parseInt(sMatch[1], 10);
-                    if (total > 0) return total;
+
+                // أيام (e.g. 2d أو 1d02:30:45)
+                var d = s.match(/^(\d+)\s*d\s*/i);
+                if (d) {
+                    totalSecs += parseInt(d[1], 10) * 86400;
+                    s = s.slice(d[0].length);
                 }
+
+                // صيغة النقطتين HH:MM:SS أو HH:MM
+                var colon = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+                if (colon) {
+                    var h = parseInt(colon[1], 10) || 0;
+                    var m = parseInt(colon[2], 10) || 0;
+                    var sec = colon[3] !== undefined ? parseInt(colon[3], 10) : 0;
+                    totalSecs += (h * 3600) + (m * 60) + sec;
+                    return totalSecs;
+                }
+
+                // صيغ الأحرف: Xh Ym Zs
+                var matched = false;
+                var hMatch = s.match(/(\d+)\s*h/i);
+                if (hMatch) { totalSecs += parseInt(hMatch[1], 10) * 3600; matched = true; }
+
+                var mMatch = s.match(/(\d+)\s*m(?!s)/i);
+                if (mMatch) { totalSecs += parseInt(mMatch[1], 10) * 60; matched = true; }
+
+                var sMatch = s.match(/(\d+)\s*s/i);
+                if (sMatch) { totalSecs += parseInt(sMatch[1], 10); matched = true; }
+
+                if (matched || totalSecs > 0) return totalSecs;
                 return 0;
             }
 
+            // 5. تنسيق البيانات باللغة العربية
             function formatBytesArabic(bytes) {
-                if (bytes <= 0 || isNaN(bytes)) return "0 ميغابايت";
-                var units = ['بايت', 'كيلوبايت', 'ميغابايت', 'جيجابايت', 'تيرابايت'];
+                if (bytes === null || bytes === undefined || isNaN(bytes)) return "غير محدد";
+                bytes = Math.max(0, Number(bytes));
+                if (bytes === 0) return "0 ميغابايت";
+
+                var units = ["بايت", "كيلوبايت", "ميغابايت", "جيجابايت", "تيرابايت"];
                 var e = Math.floor(Math.log(bytes) / Math.log(1024));
                 if (e < 0) e = 0;
                 if (e >= units.length) e = units.length - 1;
+
                 var val = (bytes / Math.pow(1024, e)).toFixed(2);
                 val = val.replace(/\.00$/, '').replace(/(\.[1-9])0$/, '$1');
                 return val + " " + units[e];
             }
 
+            // 6. تنسيق الوقت باللغة العربية
             function formatTimeArabic(sec) {
                 if (sec <= 0 || isNaN(sec)) return "منتهي أو غير محدد";
                 sec = Math.floor(sec);
@@ -925,10 +991,12 @@
                 var m = Math.floor((sec % 3600) / 60);
                 var s = sec % 60;
                 var parts = [];
+
                 if (d > 0) parts.push(d + (d === 1 ? " يوم" : (d === 2 ? " يومين" : (d <= 10 ? " أيام" : " يوماً"))));
                 if (h > 0) parts.push(h + (h === 1 ? " ساعة" : (h === 2 ? " ساعتين" : (h <= 10 ? " ساعات" : " ساعة"))));
                 if (m > 0 && d === 0) parts.push(m + (m === 1 ? " دقيقة" : (m === 2 ? " دقيقتين" : (m <= 10 ? " دقائق" : " دقيقة"))));
                 if (d === 0 && h === 0 && s > 0) parts.push(s + (s <= 10 ? " ثوانٍ" : " ثانية"));
+
                 if (parts.length === 0) return "أقل من دقيقة";
                 return parts.join(" و ");
             }
@@ -942,67 +1010,105 @@
                 return (h > 0 ? h + ":" : "") + pad(m) + ":" + pad(s);
             }
 
-            // التعرف التلقائي على الباقة من خصائص الراديوس إن وجدت
+            // 7. حساب حدود RADIUS بدقة 64-bit مع دعم Gigawords (الباقات الأكبر من 4GB)
+            var GIGAWORD_BYTES = 4294967296; // 2^32 bytes
+
+            var totalRadiusLimit = 0;
+            if (ros.radiusTotalLimitGiga > 0 || ros.radiusTotalLimitLow > 0) {
+                totalRadiusLimit = (ros.radiusTotalLimitGiga * GIGAWORD_BYTES) + ros.radiusTotalLimitLow;
+            }
+
+            var recvRadiusLimit = 0;
+            if (ros.radiusRecvLimitGiga > 0 || ros.radiusRecvLimitLow > 0) {
+                recvRadiusLimit = (ros.radiusRecvLimitGiga * GIGAWORD_BYTES) + ros.radiusRecvLimitLow;
+            }
+
+            // 8. التعرف على الباقة المعتمدة دون افتراضات خاطئة
             var currentPkgKey = null;
+            var activePkg = null;
+
             var rGroup = isValid(ros.radiusGroup) ? String(ros.radiusGroup).toUpperCase() : '';
             var rClass = isValid(ros.radiusClass) ? String(ros.radiusClass).toUpperCase() : '';
+
+            // أ) مطابقة اسم المجموعة أو الـ Class مع جدول الباقات
             for (var k in PACKAGES) {
-                if (rGroup.indexOf(k) !== -1 || rClass.indexOf(k) !== -1) {
+                if ((rGroup && rGroup.indexOf(k) !== -1) || (rClass && rClass.indexOf(k) !== -1)) {
                     currentPkgKey = k;
+                    activePkg = PACKAGES[k];
                     break;
                 }
             }
 
-            // الحسابات والعرض الديناميكي
-            var totalUsedBytes = ros.bytesIn + ros.bytesOut;
+            // ب) مطابقة إجمالي السعة بالبايت عند وجود سمات RADIUS مع مجموعة عامة (مثل default)
+            if (!activePkg && (totalRadiusLimit > 0 || recvRadiusLimit > 0)) {
+                var matchLimit = totalRadiusLimit || recvRadiusLimit;
+                for (var pk in PACKAGES) {
+                    if (PACKAGES[pk].bytes === matchLimit) {
+                        currentPkgKey = pk;
+                        activePkg = PACKAGES[pk];
+                        break;
+                    }
+                }
+            }
+
+            // ج) إذا كانت المجموعة معروفة في RADIUS ولكنها غير مسجلة في جدول الباقات السبعة
+            if (!activePkg && isValid(ros.radiusGroup)) {
+                activePkg = {
+                    name: ros.radiusGroup,
+                    label: 'فئة خاصة: ' + ros.radiusGroup,
+                    bytes: totalRadiusLimit || 0,
+                    timeSecs: ros.radiusSessionTimeout || 0,
+                    price: ''
+                };
+            }
+
+            // 9. المتغيرات الحسابية الأساسية
+            var sessionUsedBytes = ros.bytesIn + ros.bytesOut;
             var currentUptimeSecs = ros.uptimeSecs || parseRouterOSTime(ros.uptime) || 0;
             var remainingSecs = 0;
+            var hasSessionTimeLeft = false;
 
             function updateDashboard() {
-                var activePkg = currentPkgKey ? PACKAGES[currentPkgKey] : null;
-
                 // تحديث شارة الباقة واسمها
                 var pkgBadgeText = document.getElementById('active-pkg-text');
                 var modalPkgName = document.getElementById('modal-pkg-name');
+
                 if (activePkg) {
                     pkgBadgeText.innerText = activePkg.name + ' (' + activePkg.label + ')';
-                    modalPkgName.innerText = activePkg.name + ' - ' + activePkg.label;
+                    modalPkgName.innerText = activePkg.name + (activePkg.label ? ' - ' + activePkg.label : '');
                 } else {
                     pkgBadgeText.innerText = 'حساب يوزر مانجر';
-                    modalPkgName.innerText = 'يوزر مانجر (غير محدد)';
+                    modalPkgName.innerText = 'يوزر مانجر (بدون فئة محددة)';
                 }
 
-                // 1. استهلاك الجلسة
+                // أ. استهلاك الجلسة الحالية
                 var dataUsedEl = document.getElementById('data-used');
                 var dataUsedSubEl = document.getElementById('data-used-sub');
+                var downloadValEl = document.getElementById('download-val');
+                var uploadValEl = document.getElementById('upload-val');
+
                 if (isValid(ros.bytesTotalNice)) {
                     dataUsedEl.innerText = ros.bytesTotalNice;
-                } else if (totalUsedBytes > 0) {
-                    dataUsedEl.innerText = formatBytesArabic(totalUsedBytes);
+                } else if (sessionUsedBytes > 0) {
+                    dataUsedEl.innerText = formatBytesArabic(sessionUsedBytes);
                 } else {
                     dataUsedEl.innerText = "0 ميغابايت";
                 }
-                dataUsedSubEl.innerText = "تنزيل: " + (isValid(ros.bytesOutNice) ? ros.bytesOutNice : formatBytesArabic(ros.bytesOut)) +
-                                          " | رفع: " + (isValid(ros.bytesInNice) ? ros.bytesInNice : formatBytesArabic(ros.bytesIn));
 
-                // 2. حساب الرصيد المتبقي
-                var remainingBytes = null;
-                var totalQuotaBytes = null;
+                var downFormatted = isValid(ros.bytesOutNice) ? ros.bytesOutNice : formatBytesArabic(ros.bytesOut);
+                var upFormatted = isValid(ros.bytesInNice) ? ros.bytesInNice : formatBytesArabic(ros.bytesIn);
 
-                // الأولوية 1: القراءة المباشرة من متغيرات الراوتر إذا كانت مفعلة
-                if (ros.remainBytesTotal > 0) {
-                    remainingBytes = ros.remainBytesTotal;
-                } else if (ros.limitBytesTotal > 0) {
-                    totalQuotaBytes = ros.limitBytesTotal;
-                    remainingBytes = Math.max(0, ros.limitBytesTotal - totalUsedBytes);
-                } else if (ros.radiusTotalLimit > 0) {
-                    totalQuotaBytes = ros.radiusTotalLimit;
-                    remainingBytes = Math.max(0, ros.radiusTotalLimit - totalUsedBytes);
-                } else if (activePkg) {
-                    // الأولوية 2: الحساب الدقيق بناءً على باقة الكرت المعتمدة
-                    totalQuotaBytes = activePkg.bytes;
-                    remainingBytes = Math.max(0, activePkg.bytes - totalUsedBytes);
-                }
+                dataUsedSubEl.innerText = "تنزيل: " + downFormatted + " | رفع: " + upFormatted;
+                if (downloadValEl) downloadValEl.innerText = downFormatted;
+                if (uploadValEl) uploadValEl.innerText = upFormatted;
+
+                // ب. حساب الرصيد المتبقي بدقة وموثوقية
+                var rawRemOut = parseBytes(ros.remainBytesOut);
+                var rawRemIn = parseBytes(ros.remainBytesIn);
+                var hasRouterRem = (rawRemOut !== null) || (rawRemIn !== null);
+
+                var isExplicitUnlimited = (ros.remainBytesOut === '---' || ros.limitBytesOut === '---') &&
+                                          totalRadiusLimit === 0 && (!activePkg || activePkg.bytes === 0);
 
                 var dataRemEl = document.getElementById('data-rem');
                 var dataRemSubEl = document.getElementById('data-rem-sub');
@@ -1011,81 +1117,136 @@
                 var modalPkgRem = document.getElementById('modal-pkg-rem');
                 var progressBox = document.getElementById('progress-box');
 
-                if (remainingBytes !== null) {
-                    dataRemEl.innerText = formatBytesArabic(remainingBytes);
-                    modalPkgRem.innerText = formatBytesArabic(remainingBytes);
+                if (hasRouterRem) {
+                    // الحالة 1: الراوتر يمرر عدادات الرصيد المتبقي المعتمدة
+                    var remOut = rawRemOut !== null ? rawRemOut : 0;
+                    var remIn = rawRemIn !== null ? rawRemIn : 0;
+                    var totalRemBytes = remOut + remIn;
 
-                    if (totalQuotaBytes && totalQuotaBytes > 0) {
-                        dataRemSubEl.innerText = "متبقي من " + formatBytesArabic(totalQuotaBytes);
-                        pkgTotalEl.innerText = formatBytesArabic(totalQuotaBytes);
-                        modalPkgTotal.innerText = formatBytesArabic(totalQuotaBytes);
-
-                        // شريط التقدم المرئي
-                        var percentUsed = Math.min(100, Math.max(0, Math.round((totalUsedBytes / totalQuotaBytes) * 100)));
-                        var percentLeft = 100 - percentUsed;
-
-                        progressBox.style.display = 'block';
-                        var progressBar = document.getElementById('progress-bar-fill');
-                        var percentText = document.getElementById('progress-percent-text');
-                        var usedText = document.getElementById('progress-used-text');
-                        var totalText = document.getElementById('progress-total-text');
-
-                        progressBar.style.width = percentUsed + '%';
-                        percentText.innerText = "مستهلك " + percentUsed + "% (متبقي " + percentLeft + "%)";
-                        usedText.innerText = "المستهلك: " + formatBytesArabic(totalUsedBytes);
-                        totalText.innerText = "الباقة: " + formatBytesArabic(totalQuotaBytes);
-
-                        if (percentUsed >= 90) {
-                            progressBar.style.background = 'linear-gradient(90deg, #ef5350 0%, #c62828 100%)';
-                        } else if (percentUsed >= 75) {
-                            progressBar.style.background = 'linear-gradient(90deg, #ffa726 0%, #ef6c00 100%)';
-                        } else {
-                            progressBar.style.background = 'linear-gradient(90deg, #4caf50 0%, #2e7d32 100%)';
-                        }
+                    if (totalRemBytes <= 0) {
+                        dataRemEl.innerText = "0 ميغابايت (منتهي)";
+                        dataRemSubEl.innerText = "تم استهلاك الرصيد بالكامل";
+                        modalPkgRem.innerText = "0 ميغابايت (الرصيد منتهي)";
+                        if (progressBox) progressBox.style.display = 'none';
                     } else {
-                        dataRemSubEl.innerText = "رصيد متاح";
-                        pkgTotalEl.innerText = formatBytesArabic(remainingBytes);
-                        modalPkgTotal.innerText = formatBytesArabic(remainingBytes);
-                        progressBox.style.display = 'none';
+                        dataRemEl.innerText = formatBytesArabic(totalRemBytes);
+                        modalPkgRem.innerText = formatBytesArabic(totalRemBytes);
+
+                        var totalQ = totalRadiusLimit || (activePkg ? activePkg.bytes : 0);
+                        if (totalQ > 0) {
+                            dataRemSubEl.innerText = "متبقي من " + formatBytesArabic(totalQ);
+                            pkgTotalEl.innerText = formatBytesArabic(totalQ);
+                            modalPkgTotal.innerText = formatBytesArabic(totalQ);
+
+                            // حساب شريط التقدم الفعلي بناءً على الرصيد المتبقي الموثق
+                            var usedFromQuota = Math.max(0, totalQ - totalRemBytes);
+                            var percentUsed = Math.min(100, Math.max(0, Math.round((usedFromQuota / totalQ) * 100)));
+                            var percentLeft = 100 - percentUsed;
+
+                            renderProgressBar(percentUsed, percentLeft, usedFromQuota, totalQ);
+                        } else {
+                            dataRemSubEl.innerText = "رصيد متبقي موثّق";
+                            pkgTotalEl.innerText = formatBytesArabic(totalRemBytes);
+                            modalPkgTotal.innerText = formatBytesArabic(totalRemBytes);
+                            if (progressBox) progressBox.style.display = 'none';
+                        }
                     }
+                } else if (isExplicitUnlimited) {
+                    // الحالة 2: حساب غير محدود صراحة
+                    dataRemEl.innerText = "غير محدود";
+                    dataRemSubEl.innerText = "رصيد مفتوح بدون قيود";
+                    pkgTotalEl.innerText = "غير محدود";
+                    modalPkgTotal.innerText = "باقة مفتوحة (غير محدودة)";
+                    modalPkgRem.innerText = "رصيد مفتوح بدون قيود";
+                    if (progressBox) progressBox.style.display = 'none';
+                } else if (totalRadiusLimit > 0 || (activePkg && activePkg.bytes > 0)) {
+                    // الحالة 3: سعة الباقة معروفة، ولكن اليوزر مانجر يتتبع الرصيد المتبقي على مستوى السيرفر
+                    var planCapacity = totalRadiusLimit || activePkg.bytes;
+                    dataRemEl.innerText = "يُدار عبر السيرفر";
+                    dataRemSubEl.innerText = "تتبع حي عبر User Manager";
+                    pkgTotalEl.innerText = formatBytesArabic(planCapacity);
+                    modalPkgTotal.innerText = formatBytesArabic(planCapacity);
+                    modalPkgRem.innerText = "يُدار بالسيرفر (إجمالي السعة: " + formatBytesArabic(planCapacity) + ")";
+                    if (progressBox) progressBox.style.display = 'none';
                 } else {
-                    // في حال عدم توفر القيمة من الراوتر ولم يحدد المستخدم الفئة
-                    dataRemEl.innerText = "محدد بالنظام";
-                    dataRemSubEl.innerText = "تتبع عبر User Manager";
+                    // الحالة 4: لا تتوفر معلومات الحصة في هذه الجلسة
+                    dataRemEl.innerText = "يُدار عبر السيرفر";
+                    dataRemSubEl.innerText = "حسب اشتراك الحساب";
                     pkgTotalEl.innerText = "تتبع عبر User Manager";
                     modalPkgTotal.innerText = "حسب صلاحية السيرفر";
-                    modalPkgRem.innerText = "جاري تتبعه في السيرفر";
-                    progressBox.style.display = 'none';
+                    modalPkgRem.innerText = "غير متاح في الجلسة الحالية";
+                    if (progressBox) progressBox.style.display = 'none';
                 }
 
-                // 3. حساب صلاحية الوقت
+                // ج. حساب صلاحية الوقت
                 remainingSecs = 0;
+                hasSessionTimeLeft = false;
+
                 if (ros.sessionTimeLeftSecs > 0) {
                     remainingSecs = ros.sessionTimeLeftSecs;
+                    hasSessionTimeLeft = true;
                 } else if (isValid(ros.sessionTimeLeft)) {
                     remainingSecs = parseRouterOSTime(ros.sessionTimeLeft);
-                } else if (ros.radiusSessionTimeout > 0) {
-                    remainingSecs = Math.max(0, ros.radiusSessionTimeout - currentUptimeSecs);
-                } else if (activePkg && activePkg.timeSecs > 0) {
-                    remainingSecs = Math.max(0, activePkg.timeSecs - currentUptimeSecs);
+                    if (remainingSecs > 0) hasSessionTimeLeft = true;
+                } else if (ros.sessionTimeoutSecs > 0 && ros.sessionTimeoutSecs > currentUptimeSecs) {
+                    remainingSecs = ros.sessionTimeoutSecs - currentUptimeSecs;
+                    hasSessionTimeLeft = true;
+                } else if (ros.radiusSessionTimeout > 0 && ros.radiusSessionTimeout > currentUptimeSecs) {
+                    remainingSecs = ros.radiusSessionTimeout - currentUptimeSecs;
+                    hasSessionTimeLeft = true;
                 }
 
-                updateTimeDisplay();
+                var isExpiredSession = (ros.sessionTimeLeftSecs === 0 && isValid(ros.sessionTimeLeft) && parseRouterOSTime(ros.sessionTimeLeft) === 0);
+
+                updateTimeDisplay(isExpiredSession);
+
+                // د. لوحة التشخيص المباشر في حال تفعيل وضع ?debug=1
+                renderDiagnostics();
             }
 
-            function updateTimeDisplay() {
+            function renderProgressBar(percentUsed, percentLeft, usedBytes, totalBytes) {
+                var progressBox = document.getElementById('progress-box');
+                if (!progressBox) return;
+
+                progressBox.style.display = 'block';
+                var progressBar = document.getElementById('progress-bar-fill');
+                var percentText = document.getElementById('progress-percent-text');
+                var usedText = document.getElementById('progress-used-text');
+                var totalText = document.getElementById('progress-total-text');
+
+                if (progressBar) progressBar.style.width = percentUsed + '%';
+                if (percentText) percentText.innerText = "مستهلك " + percentUsed + "% (متبقي " + percentLeft + "%)";
+                if (usedText) usedText.innerText = "المستهلك: " + formatBytesArabic(usedBytes);
+                if (totalText) totalText.innerText = "الباقة: " + formatBytesArabic(totalBytes);
+
+                if (progressBar) {
+                    if (percentUsed >= 90) {
+                        progressBar.style.background = 'linear-gradient(90deg, #ef5350 0%, #c62828 100%)';
+                    } else if (percentUsed >= 75) {
+                        progressBar.style.background = 'linear-gradient(90deg, #ffa726 0%, #ef6c00 100%)';
+                    } else {
+                        progressBar.style.background = 'linear-gradient(90deg, #4caf50 0%, #2e7d32 100%)';
+                    }
+                }
+            }
+
+            function updateTimeDisplay(isExpired) {
                 var timeRemEl = document.getElementById('time-rem');
                 var timeRemSubEl = document.getElementById('time-rem-sub');
 
-                if (remainingSecs > 0) {
+                if (hasSessionTimeLeft && remainingSecs > 0) {
                     timeRemEl.innerText = formatTimeArabic(remainingSecs);
-                    timeRemSubEl.innerText = "المتبقي: " + formatDuration(remainingSecs);
-                } else if (currentPkgKey) {
-                    timeRemEl.innerText = "منتهي أو قارب الانتهاء";
-                    timeRemSubEl.innerText = "حسب وقت الباقة";
+                    timeRemSubEl.innerText = "المتبقي للجلسة: " + formatDuration(remainingSecs);
+                } else if (isExpired || (hasSessionTimeLeft && remainingSecs <= 0)) {
+                    timeRemEl.innerText = "انتهت الجلسة";
+                    timeRemSubEl.innerText = "مهلة الاتصال منتهية";
+                } else if (activePkg && activePkg.timeSecs > 0) {
+                    var durLabel = activePkg.label.indexOf('(') !== -1 ? activePkg.label.split('(')[1].replace(')', '') : activePkg.label;
+                    timeRemEl.innerText = "صلاحية الباقة: " + durLabel;
+                    timeRemSubEl.innerText = "تُحسب من أول تفعيل بالسيرفر";
                 } else {
-                    timeRemEl.innerText = "حسب صلاحية الكرت";
-                    timeRemSubEl.innerText = "متابع من السيرفر";
+                    timeRemEl.innerText = "مفتوح / غير محدد";
+                    timeRemSubEl.innerText = "حسب صلاحية الكرت بالسيرفر";
                 }
             }
 
@@ -1098,14 +1259,60 @@
 
             setInterval(function() {
                 currentUptimeSecs++;
-                uptimeEl.innerText = formatDuration(currentUptimeSecs);
-                uptimeSubEl.innerText = "متصل: " + formatDuration(currentUptimeSecs);
+                if (uptimeEl) uptimeEl.innerText = formatDuration(currentUptimeSecs);
+                if (uptimeSubEl) uptimeSubEl.innerText = "متصل: " + formatDuration(currentUptimeSecs);
 
-                if (remainingSecs > 0) {
+                if (hasSessionTimeLeft && remainingSecs > 0) {
                     remainingSecs--;
-                    updateTimeDisplay();
+                    updateTimeDisplay(remainingSecs <= 0);
                 }
             }, 1000);
+
+            // 10. محرك التشخيص والفحص (Diagnostics Panel Engine)
+            function renderDiagnostics() {
+                var isDebug = false;
+                try {
+                    isDebug = /[?&](debug|diag)=1/i.test(window.location.search) || window.location.hash === '#debug';
+                } catch(e) {}
+
+                var panel = document.getElementById('diag-panel');
+                var content = document.getElementById('diag-content');
+                if (!panel || !content) return;
+
+                if (!isDebug) {
+                    panel.style.display = 'none';
+                    return;
+                }
+
+                panel.style.display = 'block';
+                var rows = [
+                    ['username', ros.username],
+                    ['ip / mac', ros.ip + ' / ' + ros.mac],
+                    ['uptime / secs', ros.uptime + ' (' + ros.uptimeSecs + 's)'],
+                    ['session-time-left / secs', ros.sessionTimeLeft + ' (' + ros.sessionTimeLeftSecs + 's)'],
+                    ['bytes-in / bytes-out', ros.bytesIn + ' / ' + ros.bytesOut],
+                    ['bytes-total-nice', ros.bytesTotalNice],
+                    ['remain-bytes-out / in', ros.remainBytesOut + ' / ' + ros.remainBytesIn],
+                    ['limit-bytes-out / in', ros.limitBytesOut + ' / ' + ros.limitBytesIn],
+                    ['radius17 (Total-Limit-Low)', ros.radiusTotalLimitLow],
+                    ['radius18 (Total-Limit-Gigawords)', ros.radiusTotalLimitGiga],
+                    ['Calculated Radius Total Limit', formatBytesArabic(totalRadiusLimit) + ' (' + totalRadiusLimit + ' B)'],
+                    ['radius3 (Group) / radius25 (Class)', ros.radiusGroup + ' / ' + ros.radiusClass],
+                    ['radius8 (Rate-Limit)', ros.radiusRateLimit || 'none'],
+                    ['radius27u (Session-Timeout)', ros.radiusSessionTimeout + 's'],
+                    ['Detected Package', activePkg ? activePkg.name + ' [' + (currentPkgKey || 'custom') + ']' : 'None']
+                ];
+
+                var html = '<table style="width:100%; border-collapse:collapse; margin-top:5px;">';
+                rows.forEach(function(r) {
+                    html += '<tr style="border-bottom:1px solid #27272a;">' +
+                            '<td style="color:#a1a1aa; padding:4px 8px 4px 0; vertical-align:top;">' + r[0] + '</td>' +
+                            '<td style="color:#38bdf8; padding:4px 0; word-break:break-all;">' + r[1] + '</td>' +
+                            '</tr>';
+                });
+                html += '</table>';
+                content.innerHTML = html;
+            }
         })();
 
         // دوال التحكم بالنوافذ المنبثقة (Modals)
@@ -1143,5 +1350,6 @@
         }
         createParticles();
     </script>
+
 </body>
 </html>

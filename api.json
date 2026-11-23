@@ -4,8 +4,8 @@
 $(if session-timeout-secs != 0)
    "seconds-remaining": $(session-timeout-secs),
 $(endif)
-$(if remain-bytes-total)
-   "bytes-remaining": $(remain-bytes-total),
+$(if remain-bytes-out)
+   "bytes-remaining": $(remain-bytes-out),
 $(endif)
    "can-extend-session": true
 }

@@ -46,7 +46,7 @@
         .logo {
             width: 140px;
             height: 140px;
-            border-radius: 16px; /* مربع بزوايا منحنية */
+            border-radius: 16px;
             object-fit: cover;
             border: 3px solid rgba(46, 125, 50, 0.3);
             box-shadow: 0 12px 36px rgba(46, 125, 50, 0.22);
@@ -102,10 +102,25 @@
         }
     </style>
     <script>
-        // التوجيه التلقائي بعد نجاح تسجيل الدخول
+        function getRedirectTarget() {
+            var target = '$(link-redirect)';
+            if (!target || target === '' || target.indexOf('$(') !== -1) {
+                target = '$(link-status)';
+            }
+            if (!target || target === '' || target.indexOf('$(') !== -1) {
+                target = 'status.html';
+            }
+            return target;
+        }
+
         setTimeout(function() {
-            window.location.href = '$(link-redirect)';
-        }, 2000);
+            window.location.href = getRedirectTarget();
+        }, 1800);
+
+        document.addEventListener('DOMContentLoaded', function() {
+            var btn = document.getElementById('redirect-btn');
+            if (btn) btn.href = getRedirectTarget();
+        });
     </script>
 </head>
 <body>
@@ -121,7 +136,7 @@
             <p class="message">تم تسجيل الدخول بنجاح!</p>
             <p class="sub-message">جاري توجيهك إلى صفحة الحالة...</p>
             
-            <a href="$(link-redirect)" class="redirect-link">انقر هنا إذا لم يتم التوجيه تلقائياً</a>
+            <a href="$(link-redirect)" id="redirect-btn" class="redirect-link">انقر هنا إذا لم يتم التوجيه تلقائياً</a>
         </div>
     </div>
 </body>
