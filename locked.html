@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>قفل الحساب - AK Net</title>
+    <style>
+        body{font-family: 'Segoe UI', Tahoma, Arial;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f7f9f7;margin:0}
+        .card{background:#fff;padding:28px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.08);max-width:520px;width:100%;text-align:right}
+        h1{color:#1b5e20;margin-bottom:8px}
+        p{color:#3e6b2f;line-height:1.6}
+        .meta{margin-top:12px;color:#6b6b6b;font-size:14px}
+        .btn{display:inline-block;margin-top:18px;padding:12px 16px;background:#4caf50;color:#fff;border-radius:10px;text-decoration:none}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>تم قفل المحاولة</h1>
+        <p id="message">تم قفل هذا الحساب مؤقتًا بعد عدة محاولات تسجيل دخول فاشلة.</p>
+        <div class="meta" id="details"></div>
+        <a href="login.html" class="btn">العودة إلى صفحة الدخول</a>
+    </div>
+
+    <script>
+        (function(){
+            function qs(name){
+                var m = location.search.match(new RegExp('[?&]'+name+'=([^&]*)'));
+                return m ? decodeURIComponent(m[1]) : '';
+            }
+            var id = qs('id');
+            var ip = qs('ip');
+            var key = 'aknet_lock_' + (id || ('ip_' + ip));
+            var raw = localStorage.getItem(key);
+            var detailsEl = document.getElementById('details');
+            if (raw) {
+                try {
+                    var st = JSON.parse(raw);
+                    if (st.until) {
+                        var until = new Date(st.until);
+                        var now = new Date();
+                        var mins = Math.ceil((st.until - Date.now())/60000);
+                        if (mins > 0) {
+                            document.getElementById('message').textContent = 'تم قفل هذا الحساب مؤقتًا بعد تجاوز عدد محاولات تسجيل الدخول المسموح به.';
+                            detailsEl.textContent = (id ? 'المستخدم: ' + id + ' • ' : '') + (ip ? 'IP: ' + ip + ' • ' : '') + 'سيمكنك المحاولة مرة أخرى بعد: ' + until.toLocaleString();
+                        } else {
+                            // قفل انتهى
+                            localStorage.removeItem(key);
+                            detailsEl.textContent = 'انتهت فترة القفل، يمكنك العودة ومحاولة تسجيل الدخول مجددًا.';
+                        }
+                    } else {
+                        detailsEl.textContent = (id ? 'المستخدم: ' + id : '') + (ip ? ' • IP: ' + ip : '');
+                    }
+                } catch(e){
+                    detailsEl.textContent = (id ? 'المستخدم: ' + id : '') + (ip ? ' • IP: ' + ip : '');
+                }
+            } else {
+                detailsEl.textContent = 'معلومات الحساب غير متوفرة. الرجاء المحاولة لاحقًا أو التواصل مع الدعم.';
+            }
+        })();
+    </script>
+</body>
+</html>
