@@ -494,7 +494,7 @@
     <form name="sendin" action="$(link-login-only)" method="post" style="display:none">
         <input type="hidden" name="username" />
         <input type="hidden" name="password" />
-        <input type="hidden" name="dst" value="$(link-orig)" />
+        <input type="hidden" name="dst" value="$(link-status)" />
         <input type="hidden" name="popup" value="true" />
     </form>
     <script src="md5.js"></script>
@@ -506,7 +506,9 @@
                 document.sendin.submit();
                 return false;
             }
-            return true;
+            var errorBox = document.getElementById('login-error');
+            if (errorBox) errorBox.textContent = 'تعذر تحميل حماية تسجيل الدخول. أعد تحميل الصفحة ثم حاول مرة أخرى.';
+            return false;
         }
     </script>
     $(else)
@@ -540,18 +542,9 @@
 
             <!-- نموذج تسجيل الدخول -->
             <form class="login-form" name="login" action="$(link-login-only)" method="post" onsubmit="document.login.password.value = document.login.username.value; return doLogin();">
-                <input type="hidden" name="dst" value="$(link-orig)">
+                <input type="hidden" name="dst" value="$(link-status)">
                 <input type="hidden" name="popup" value="true">
-                <!-- MikroTik Hotspot required fields for CHAP login -->
-                <input type="hidden" name="mac" value="$(mac)">
-                <input type="hidden" name="ip" value="$(ip)">
-                <input type="hidden" name="chap-id" value="$(chap-id)">
-                <input type="hidden" name="chap-challenge" value="$(chap-challenge)">
-                <input type="hidden" name="chap-response" value="">
-                <!-- plain password field will be cleared before submit if CHAP used -->
                 <input type="hidden" name="password" value="">
-                <!-- Debug output for CHAP (will be shown when JS runs) -->
-                <div id="chap-debug" style="display:none; font-size:13px; color:#33691e; text-align:center; margin-top:12px;"></div>
                 
                 <div class="input-group">
                     <div class="input-wrapper">
@@ -570,7 +563,7 @@
                     </svg>
                 </button>
 
-                <div class="error-message">$(if error)$(error)$(endif)</div>
+                <div class="error-message" id="login-error" role="alert" aria-live="polite"></div>
             </form>
 
             <!-- أزرار الخدمات -->
@@ -643,22 +636,22 @@
                     <div class="price">200 ريال</div>
                     <div class="balance-display" style="text-align:left;">
                         <span style="font-size:30px;font-weight:700;color:#1b5e20;">800</span>
-                        <span style="font-size:20px;color:#689f38;margin-left:8px;">MB</span>
+                        <span style="font-size:20px;color:#689f38;margin-left:8px;">MiB</span>
                     </div>
                 </div>
                 <div class="duration">صالحة لمدة 24 ساعة</div>
             </div>
 
             <div class="price-card">
-                <h3>باقة يومية</h3>
+                <h3>باقة 3 أيام</h3>
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:6px;">
                     <div class="price">500 ريال</div>
                     <div class="balance-display" style="text-align:left;">
                         <span style="font-size:30px;font-weight:700;color:#1b5e20;">2</span>
-                        <span style="font-size:20px;color:#689f38;margin-left:8px;">GB</span>
+                        <span style="font-size:20px;color:#689f38;margin-left:8px;">GiB</span>
                     </div>
                 </div>
-                <div class="duration">صالحة لمدة 3 ايام</div>
+                <div class="duration">صالحة لمدة 3 أيام</div>
             </div>
             
             <div class="price-card">
@@ -667,22 +660,22 @@
                     <div class="price">1,000 ريال</div>
                     <div class="balance-display" style="text-align:left;">
                         <span style="font-size:30px;font-weight:700;color:#1b5e20;">5</span>
-                        <span style="font-size:20px;color:#689f38;margin-left:8px;">GB</span>
+                        <span style="font-size:20px;color:#689f38;margin-left:8px;">GiB</span>
                     </div>
                 </div>
                 <div class="duration">صالحة لمدة 7 أيام</div>
             </div>
             
             <div class="price-card">
-                <h3>باقة أسبوعية</h3>
+                <h3>باقة شهرية</h3>
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:6px;">
                     <div class="price">3,000 ريال</div>
                     <div class="balance-display" style="text-align:left;">
                         <span style="font-size:30px;font-weight:700;color:#1b5e20;">18</span>
-                        <span style="font-size:20px;color:#689f38;margin-left:8px;">GB</span>
+                        <span style="font-size:20px;color:#689f38;margin-left:8px;">GiB</span>
                     </div>
                 </div>
-                <div class="duration">صالحة لمدة اسبوعين</div>
+                <div class="duration">صالحة لمدة 30 يوماً</div>
             </div>
 
             <div class="price-card">
@@ -691,10 +684,10 @@
                     <div class="price">6,000 ريال</div>
                     <div class="balance-display" style="text-align:left;">
                         <span style="font-size:30px;font-weight:700;color:#1b5e20;">40</span>
-                        <span style="font-size:20px;color:#689f38;margin-left:8px;">GB</span>
+                        <span style="font-size:20px;color:#689f38;margin-left:8px;">GiB</span>
                     </div>
                 </div>
-                <div class="duration">صالحة لمدة 30 يوم</div>
+                <div class="duration">صالحة لمدة 30 يوماً</div>
             </div>
 
             <div class="price-card">
@@ -702,11 +695,23 @@
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:6px;">
                     <div class="price">10,000 ريال</div>
                     <div class="balance-display" style="text-align:left;">
-                        <span style="font-size:20px;color:#689f38;margin-left:8px;">GB</span>
+                        <span style="font-size:20px;color:#689f38;margin-left:8px;">GiB</span>
                         <span style="font-size:30px;font-weight:700;color:#1b5e20;">80</span>
                     </div>
                 </div>
-                <div class="duration">صالحة لمدة 30 يوم</div>
+                <div class="duration">صالحة لمدة 30 يوماً</div>
+            </div>
+
+            <div class="price-card">
+                <h3>باقة VIP</h3>
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:6px;">
+                    <div class="price">20,000 ريال</div>
+                    <div class="balance-display" style="text-align:left;">
+                        <span style="font-size:30px;font-weight:700;color:#1b5e20;">170</span>
+                        <span style="font-size:20px;color:#689f38;margin-left:8px;">GiB</span>
+                    </div>
+                </div>
+                <div class="duration">صالحة لمدة 30 يوماً</div>
             </div>
         </div>
     </div>
@@ -841,7 +846,21 @@
         createParticles();
     </script>
     <script>
+        (function () {
+            var encodedError = '$(error-esc)';
+            if (encodedError.indexOf('$(') !== -1 || encodedError === '') return;
+            var message = '';
+            try {
+                message = decodeURIComponent(encodedError.replace(/\+/g, ' '));
+            } catch (ignore) {
+                message = 'تعذر تسجيل الدخول. تحقق من بيانات الكرت وحاول مرة أخرى.';
+            }
+            var errorBox = document.getElementById('login-error');
+            if (errorBox) errorBox.textContent = message;
+        }());
+
         (function(){
+            return;
             // إعدادات القفل
             var MAX_ATTEMPTS = 5; // عدد المحاولات المسموح بها
             var LOCK_MINUTES = 1; // مدة القفل بالدقائق
@@ -889,10 +908,7 @@
                         // إذا لم تكن هناك رسالة خطأ، نزيل العد (تسجيل ناجح أو تحميل أولي)
                         if (state) localStorage.removeItem(key);
                     }
-                } catch (e) {
-                    // في حال أي خطأ بسيط، لا نمنع سير الصفحة
-                    console.error('Lockout script error', e);
-                }
+                } catch (e) {}
             });
         })();
     </script>

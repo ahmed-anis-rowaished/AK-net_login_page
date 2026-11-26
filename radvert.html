@@ -1,6 +1,5 @@
 <html>
 <head>
-<meta http-equiv="refresh" content="2; url=$(link-orig)">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />   
 <meta http-equiv="pragma" content="no-cache">
@@ -9,30 +8,47 @@
 <link rel="stylesheet" href="css/style.css">
 <script>
 
-    var popup = '';
+    var popup = null;
+    function decodeTemplate(value) {
+        if (!value || value.indexOf('$(') !== -1) return '';
+        try { return decodeURIComponent(value.replace(/\+/g, ' ')); } catch (ignore) { return ''; }
+    }
+    function safeHttpUrl(value) {
+        if (!value) return '';
+        try {
+            var parsed = new URL(value, window.location.href);
+            return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.href : '';
+        } catch (ignore) {
+            return '';
+        }
+    }
+    var originalTarget = safeHttpUrl(decodeTemplate('$(link-orig-esc)'));
+    var advertTarget = safeHttpUrl(decodeTemplate('$(link-redirect-esc)'));
     function openOrig() {
-	if (window.focus) popup.focus();
-	location.href = unescape('$(link-orig-esc)');
+        if (popup && popup.focus) popup.focus();
+        if (originalTarget) window.location.href = originalTarget;
     }
     function openAd() {
-	location.href = unescape('$(link-redirect-esc)');
+        if (advertTarget) window.location.href = advertTarget;
     }
     function openAdvert() {
-	if (window.name != 'hotspot_advert') {
-		popup = open('$(link-redirect)', 'hotspot_advert', '');
-		setTimeout("openOrig()", 1000);
-		return;
-	}
-	setTimeout("openAd()", 1000);
+        var manual = document.getElementById('advert-link');
+        if (manual && advertTarget) manual.href = advertTarget;
+        if (window.name !== 'hotspot_advert' && advertTarget) {
+            popup = window.open(advertTarget, 'hotspot_advert', '');
+            window.setTimeout(openOrig, 1000);
+            return;
+        }
+        window.setTimeout(openAd, 1000);
     }
 </script>
 </head>
-<body onLoad="openAdvert()">
+<body onload="openAdvert()">
     <div class="ie-fixMinHeight">
         <div class="main">
             <div class="wrap">
                 <h1>Advertisement</h1>
-                <p class="info">If nothing happens, open <a href="$(link-redirect)" target="hotspot_advert">advertisement</a> manually.</p>
+                <p class="info">If nothing happens, open <a href="#" id="advert-link" target="hotspot_advert" rel="noopener">advertisement</a> manually.</p>
             </div>
         </div>
     </div>

@@ -1,618 +1,276 @@
-/**
- * AK Net HotSpot Portal - Automated Test Suite
- * Comprehensive Pre-Deployment Validation for MikroTik RouterOS 7 & User Manager v7
- *
- * Covers all 16 required test scenarios with exact expected results assertions.
- */
+'use strict';
 
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-// Mock DOM Environment
-function createMockDOM(urlSearch = '') {
-    const elements = {};
-    function getOrCreate(id) {
+const root = path.join(__dirname, '..');
+const statusScript = fs.readFileSync(path.join(root, 'js', 'status.js'), 'utf8');
+const statusHtml = fs.readFileSync(path.join(root, 'status.html'), 'utf8');
+const loginHtml = fs.readFileSync(path.join(root, 'login.html'), 'utf8');
+const aloginHtml = fs.readFileSync(path.join(root, 'alogin.html'), 'utf8');
+const logoutHtml = fs.readFileSync(path.join(root, 'logout.html'), 'utf8');
+const errorHtml = fs.readFileSync(path.join(root, 'error.html'), 'utf8');
+const radvertHtml = fs.readFileSync(path.join(root, 'radvert.html'), 'utf8');
+
+let passed = 0;
+let failed = 0;
+
+function assertEqual(actual, expected, name) {
+    if (actual === expected) {
+        passed += 1;
+        console.log('  PASS ' + name);
+    } else {
+        failed += 1;
+        console.error('  FAIL ' + name + '\n       expected: ' + JSON.stringify(expected) + '\n       actual:   ' + JSON.stringify(actual));
+    }
+}
+
+function assert(condition, name) {
+    assertEqual(Boolean(condition), true, name);
+}
+
+function createDom() {
+    const elements = Object.create(null);
+    function element(id) {
         if (!elements[id]) {
             elements[id] = {
-                id: id,
-                _text: '',
-                set textContent(v) { this._text = String(v); },
-                get textContent() { return this._text; },
-                set innerText(v) { this._text = String(v); },
-                get innerText() { return this._text; },
-                style: {},
-                classList: {
-                    classes: new Set(),
-                    add(c) { this.classes.add(c); },
-                    remove(c) { this.classes.delete(c); },
-                    contains(c) { return this.classes.has(c); }
-                },
-                children: [],
+                id,
+                textContent: '',
                 innerHTML: '',
-                addEventListener: () => {},
-                appendChild: function(child) { this.children.push(child); }
+                style: {},
+                classList: { add() {}, remove() {}, contains() { return false; } },
+                addEventListener() {},
+                appendChild() {}
             };
         }
         return elements[id];
     }
-
-    let intervalFn = null;
-    let intervalMs = 0;
-
-    const documentMock = {
-        getElementById: (id) => getOrCreate(id),
-        querySelector: (sel) => {
-            if (sel.startsWith('#')) return getOrCreate(sel.slice(1));
-            return getOrCreate('sel_' + sel.replace(/[^a-zA-Z0-9]/g, '_'));
-        },
-        querySelectorAll: () => [],
-        createElement: (tag) => ({
-            tag,
-            style: {},
-            className: '',
-            children: [],
-            appendChild(c) { this.children.push(c); }
-        })
-    };
-
-    const windowMock = {
-        location: {
-            search: urlSearch,
-            hash: '',
-            href: 'http://10.0.0.1/status' + urlSearch
-        },
-        localStorage: {
-            _data: {},
-            getItem(k) { return this._data[k] || null; },
-            setItem(k, v) { this._data[k] = String(v); },
-            removeItem(k) { delete this._data[k]; }
-        },
-        setInterval: (fn, ms) => {
-            intervalFn = fn;
-            intervalMs = ms;
-            return 1;
-        },
-        clearInterval: () => {
-            intervalFn = null;
+    return {
+        elements,
+        document: {
+            getElementById: element,
+            querySelectorAll() { return []; },
+            createElement(tag) { return element('created-' + tag); }
         }
     };
-
-    return {
-        documentMock,
-        windowMock,
-        elements,
-        getIntervalFn: () => intervalFn,
-        getIntervalMs: () => intervalMs
-    };
 }
 
-// Function to substitute MikroTik template variables in a file and execute it in a sandbox
-function runStatusScript(mockVars, targetFile = 'status.html') {
-    const filePath = path.join(__dirname, '..', targetFile);
-    let html = fs.readFileSync(filePath, 'utf8');
-
-    // Substitute provided variables
-    for (const [key, val] of Object.entries(mockVars)) {
-        html = html.split(`$(${key})`).join(val !== undefined ? String(val) : '');
-    }
-
-    // Extract script
-    const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
-    if (!scriptMatch) throw new Error(`No script tag found in ${targetFile}`);
-    const scriptContent = scriptMatch[1];
-
-    const { documentMock, windowMock, elements, getIntervalFn } = createMockDOM();
-
-    const logs = [];
-    const errors = [];
-    const sandbox = {
-        document: documentMock,
-        window: windowMock,
-        console: {
-            log: (...args) => logs.push(args.join(' ')),
-            error: (...args) => errors.push(args.join(' ')),
-            warn: (...args) => logs.push('WARN: ' + args.join(' '))
-        },
-        setInterval: windowMock.setInterval,
-        clearInterval: windowMock.clearInterval,
-        parseInt: parseInt,
-        parseFloat: parseFloat,
-        isNaN: isNaN,
-        Math: Math,
-        String: String,
-        Number: Number,
-        Date: Date,
-        openModal: () => {},
-        closeModal: () => {}
+function runStatus(values) {
+    const { elements, document } = createDom();
+    let interval = null;
+    const window = {
+        AKNET_SESSION: Object.assign({}, values),
+        setInterval(fn, ms) { interval = { fn, ms }; return 1; }
     };
-
+    const sandbox = { window, document, Math, Number, String, Object, RegExp, decodeURIComponent, isFinite };
     vm.createContext(sandbox);
-    vm.runInContext(scriptContent, sandbox);
-
-    return { elements, logs, errors, sandbox, windowMock, getIntervalFn };
+    vm.runInContext(statusScript, sandbox, { filename: 'js/status.js' });
+    return { elements, window, tick: interval && interval.fn, intervalMs: interval && interval.ms };
 }
 
-// Helper for testing api.json template substitution
-function evaluateApiJson(mockVars) {
-    const filePath = path.join(__dirname, '..', 'api.json');
-    let template = fs.readFileSync(filePath, 'utf8');
-
-    // Evaluate $(if condition) ... $(else) ... $(endif)
-    // 1. logged-in conditional
-    const isLoggedIn = mockVars['logged-in'] === 'yes';
-    template = template.replace(/\$\(if logged-in == 'yes'\)([\s\S]*?)\$\(else\)([\s\S]*?)\$\(endif\)/g,
-        isLoggedIn ? '$1' : '$2');
-
-    // 2. session-timeout-secs != 0 conditional
-    const timeoutSecs = parseInt(mockVars['session-timeout-secs'] || '0', 10);
-    template = template.replace(/\$\(if session-timeout-secs != 0\)([\s\S]*?)\$\(endif\)/g,
-        timeoutSecs !== 0 ? '$1' : '');
-
-    // 3. remain-bytes-total conditional
-    const hasRemainBytesTotal = Boolean(mockVars['remain-bytes-total'] && mockVars['remain-bytes-total'].trim() !== '');
-    template = template.replace(/\$\(if remain-bytes-total\)([\s\S]*?)\$\(endif\)/g,
-        hasRemainBytesTotal ? '$1' : '');
-
-    // 4. Substitute standard variables
-    for (const [key, val] of Object.entries(mockVars)) {
-        template = template.split(`$(${key})`).join(val !== undefined ? String(val) : '');
-    }
-
-    return template;
+function text(result, id) {
+    return result.elements[id] ? result.elements[id].textContent : '';
 }
 
-// ================= TEST SUITE =================
-let passed = 0;
-let failed = 0;
-
-function assert(condition, testName, details = '') {
-    if (condition) {
-        console.log(`  ✅ PASS: ${testName}`);
-        passed++;
-    } else {
-        console.error(`  ❌ FAIL: ${testName} - ${details}`);
-        failed++;
-    }
+function evaluateApi(vars) {
+    let template = fs.readFileSync(path.join(root, 'api.json'), 'utf8');
+    const loggedIn = vars['logged-in'] === 'yes';
+    template = template.replace(/\$\(if logged-in == 'yes'\)([\s\S]*?)\$\(else\)([\s\S]*?)\$\(endif\)/g, loggedIn ? '$1' : '$2');
+    const seconds = Number(vars['session-timeout-secs'] || 0);
+    template = template.replace(/\$\(if session-timeout-secs != 0\)([\s\S]*?)\$\(endif\)/g, seconds !== 0 ? '$1' : '');
+    const remaining = vars['remain-bytes-total'];
+    template = template.replace(/\$\(if remain-bytes-total\)([\s\S]*?)\$\(endif\)/g, remaining !== undefined && remaining !== '' ? '$1' : '');
+    Object.keys(vars).forEach((key) => { template = template.split('$(' + key + ')').join(String(vars[key])); });
+    return JSON.parse(template);
 }
 
-console.log('================================================================');
-console.log('AK Net Status Page: Strengthened Automated Verification Suite');
-console.log('Testing RouterOS 7 + User Manager v7 Pre-Deployment Compatibility');
-console.log('================================================================\n');
-
-// ----------------------------------------------------
-// Test Area 1: Combined Quota Using $(remain-bytes-total)
-// ----------------------------------------------------
-console.log('Test Area 1: Combined Quota via $(remain-bytes-total)');
-{
-    const res = runStatusScript({
-        'username': 'ahmed_total',
-        'remain-bytes-total': '1073741824', // exactly 1 GiB
-        'limit-bytes-total': '2147483648',  // 2 GiB
-        'radius3-14988': '500RY'
-    });
-
-    assert(res.errors.length === 0, 'No JavaScript execution errors');
-    assert(res.elements['data-rem'].textContent.trim() === '1 جيجابايت',
-           'Exact 1 GiB formatted remaining quota', `Got: "${res.elements['data-rem'].textContent}"`);
-    assert(res.elements['data-rem-sub'].textContent.includes('متبقي من 2 جيجابايت'),
-           'Correct total quota sub-label', `Got: "${res.elements['data-rem-sub'].textContent}"`);
-}
-
-// ----------------------------------------------------
-// Test Area 2: Separate Upload and Download Quotas (No Summing!)
-// ----------------------------------------------------
-console.log('\nTest Area 2: Separate Directional Quotas (Never Summing Independent Limits)');
-{
-    // Test 2a: Both download and upload limits exist
-    const resBoth = runStatusScript({
-        'username': 'directional_user',
-        'remain-bytes-out': '104857600', // 100 MiB download
-        'remain-bytes-in': '52428800',   // 50 MiB upload
-        'limit-bytes-out': '524288000',
-        'limit-bytes-in': '104857600'
-    });
-
-    assert(resBoth.errors.length === 0, 'No errors on directional limits');
-    // Ensure it did NOT sum them (100 + 50 = 150 MiB)
-    assert(!resBoth.elements['data-rem'].textContent.includes('150'),
-           'Never sums independent directional limits to fabricate combined quota',
-           `Got: "${resBoth.elements['data-rem'].textContent}"`);
-    assert(resBoth.elements['data-rem-sub'].textContent.includes('تنزيل') &&
-           resBoth.elements['data-rem-sub'].textContent.includes('رفع'),
-           'Preserves separate directional values in subtitle',
-           `Got: "${resBoth.elements['data-rem-sub'].textContent}"`);
-
-    // Test 2b: Download only quota
-    const resDownOnly = runStatusScript({
-        'username': 'down_only_user',
-        'remain-bytes-out': '209715200', // 200 MiB download
-        'limit-bytes-out': '1073741824'
-    });
-    assert(resDownOnly.elements['data-rem'].textContent.trim() === '200 ميغابايت',
-           'Exact download-only remaining quota displayed',
-           `Got: "${resDownOnly.elements['data-rem'].textContent}"`);
-    assert(resDownOnly.elements['data-rem-sub'].textContent.includes('حصة التنزيل'),
-           'Labels quota specifically as download allowance',
-           `Got: "${resDownOnly.elements['data-rem-sub'].textContent}"`);
-}
-
-// ----------------------------------------------------
-// Test Area 3: Missing Quota Information
-// ----------------------------------------------------
-console.log('\nTest Area 3: Missing Quota Information (User Manager Server Tracking)');
-{
-    const res = runStatusScript({
-        'username': 'um_untracked',
-        'bytes-in': '1000000',
-        'bytes-out': '2000000'
-        // no remain-bytes, no limits
-    });
-
-    assert(res.errors.length === 0, 'No errors when quota variables missing');
-    assert(res.elements['data-rem'].textContent.includes('يُدار عبر السيرفر'),
-           'Displays server-managed state without guessing balance',
-           `Got: "${res.elements['data-rem'].textContent}"`);
-}
-
-// ----------------------------------------------------
-// Test Area 4: Exactly Zero Remaining Quota (Exhausted State)
-// ----------------------------------------------------
-console.log('\nTest Area 4: Exactly Zero Remaining Quota (Exhausted State)');
-{
-    const res = runStatusScript({
-        'username': 'zero_quota_user',
-        'remain-bytes-total': '0',
-        'bytes-in': '500000',
-        'bytes-out': '500000',
-        'radius3-14988': '200RY'
-    });
-
-    assert(res.elements['data-rem'].textContent.includes('منتهي') ||
-           res.elements['data-rem'].textContent.includes('0 ميغابايت'),
-           'Identifies 0 bytes as exhausted quota',
-           `Got: "${res.elements['data-rem'].textContent}"`);
-    assert(res.elements['data-rem-sub'].textContent.includes('بالكامل'),
-           'Subtitle confirms full consumption',
-           `Got: "${res.elements['data-rem-sub'].textContent}"`);
-}
-
-// ----------------------------------------------------
-// Test Area 5: Unlimited Sessions Without False Positives
-// ----------------------------------------------------
-console.log('\nTest Area 5: Unlimited Sessions (True Positive vs Negative)');
-{
-    // 5a: True Unlimited
-    const resUnlim = runStatusScript({
-        'username': 'true_unlimited',
-        'remain-bytes-total': '---',
-        'limit-bytes-total': '---'
-    });
-    assert(resUnlim.elements['data-rem'].textContent.trim() === 'غير محدود',
-           'Explicit unlimited reports "غير محدود"',
-           `Got: "${resUnlim.elements['data-rem'].textContent}"`);
-
-    // 5b: Capped user must NOT falsely show unlimited
-    const resCapped = runStatusScript({
-        'username': 'capped_user',
-        'remain-bytes-total': '524288000' // 500 MB
-    });
-    assert(resCapped.elements['data-rem'].textContent !== 'غير محدود',
-           'Capped user is never marked as unlimited (no false positive)',
-           `Got: "${resCapped.elements['data-rem'].textContent}"`);
-}
-
-// ----------------------------------------------------
-// Test Area 6: Large RADIUS Packages via Gigawords (5, 18, 40, 80, 170 GiB)
-// ----------------------------------------------------
-console.log('\nTest Area 6: Large Packages with Exact 64-bit Gigawords Calculation');
-{
-    const packagesToTest = [
-        { name: '5 GiB (1000RY)', low: 1073741824, giga: 1, expectedTotal: 5368709120, label: '5 جيجابايت' },
-        { name: '18 GiB (3000RY)', low: 2147483648, giga: 4, expectedTotal: 19327352832, label: '18 جيجابايت' },
-        { name: '40 GiB (6000RY)', low: 0, giga: 10, expectedTotal: 42949672960, label: '40 جيجابايت' },
-        { name: '80 GiB (10000RY)', low: 0, giga: 20, expectedTotal: 85899345920, label: '80 جيجابايت' },
-        { name: '170 GiB (20000RY)', low: 2147483648, giga: 42, expectedTotal: 182536110080, label: '170 جيجابايت' }
-    ];
-
-    for (const pkg of packagesToTest) {
-        const res = runStatusScript({
-            'username': 'test_giga',
-            'radius17-14988u': String(pkg.low),
-            'radius18-14988u': String(pkg.giga),
-            'radius3-14988': 'default_group' // group name does NOT contain the key!
-        });
-
-        const totalVal = res.elements['package-total-val'].textContent;
-        const badgeVal = res.elements['active-pkg-text'].textContent;
-
-        assert(totalVal.includes(pkg.label),
-               `Exact capacity calculated for ${pkg.name}: ${pkg.label}`,
-               `Got: "${totalVal}"`);
-        assert(badgeVal.includes(pkg.label),
-               `Identified package tier from exact byte capacity: ${pkg.name}`,
-               `Got: "${badgeVal}"`);
-    }
-}
-
-// ----------------------------------------------------
-// Test Area 7: Remaining Session Time Without Double Subtraction
-// ----------------------------------------------------
-console.log('\nTest Area 7: Remaining Session Time Without Double Subtraction');
-{
-    // When RouterOS provides session-time-left-secs = 3600 (1 hour remaining) and uptime is 1800 (30 min)
-    // The remaining time MUST be 3600 seconds (1 hour), NOT 3600 - 1800 = 1800!
-    const res = runStatusScript({
-        'username': 'timer_user',
-        'uptime-secs': '1800',
-        'session-time-left-secs': '3600'
-    });
-
-    assert(res.elements['time-rem'].textContent.includes('ساعة') &&
-           !res.elements['time-rem'].textContent.includes('دقيقة'),
-           'Exact 1 hour remaining session time (no double subtraction of uptime)',
-           `Got: "${res.elements['time-rem'].textContent}"`);
-    assert(res.elements['time-rem-sub'].textContent.includes('1:00:00'),
-           'Exact duration format in subtitle',
-           `Got: "${res.elements['time-rem-sub'].textContent}"`);
-}
-
-// ----------------------------------------------------
-// Test Area 8: Zero and Expired Session Time
-// ----------------------------------------------------
-console.log('\nTest Area 8: Zero and Expired Session Time');
-{
-    const res = runStatusScript({
-        'username': 'expired_session',
-        'uptime-secs': '7200',
-        'session-time-left-secs': '0',
-        'session-time-left': '00:00:00'
-    });
-
-    assert(res.elements['time-rem'].textContent.trim() === 'انتهت الجلسة',
-           'Reports exact expired session state',
-           `Got: "${res.elements['time-rem'].textContent}"`);
-    assert(res.elements['time-rem-sub'].textContent.includes('مهلة الاتصال منتهية'),
-           'Subtitle confirms session expired',
-           `Got: "${res.elements['time-rem-sub'].textContent}"`);
-}
-
-// ----------------------------------------------------
-// Test Area 9: Missing and Unresolved Template Variables
-// ----------------------------------------------------
-console.log('\nTest Area 9: Unresolved MikroTik Variables (Raw $(...) Literals)');
-{
-    const res = runStatusScript({
-        'username': '$(username)',
-        'ip': '$(ip)',
-        'mac': '$(mac)',
-        'uptime': '$(uptime)',
-        'uptime-secs': '$(uptime-secs)',
-        'session-time-left': '$(session-time-left)',
-        'remain-bytes-total': '$(remain-bytes-total)',
-        'remain-bytes-out': '$(remain-bytes-out)'
-    });
-
-    assert(res.errors.length === 0, 'No runtime exceptions on unreplaced templates');
-    assert(!res.elements['data-rem'].textContent.includes('NaN'),
-           'Data remaining never displays NaN', `Got: "${res.elements['data-rem'].textContent}"`);
-    assert(!res.elements['time-rem'].textContent.includes('NaN'),
-           'Time remaining never displays NaN', `Got: "${res.elements['time-rem'].textContent}"`);
-}
-
-// ----------------------------------------------------
-// Test Area 10: Exact Parsing of RouterOS Time Formats
-// ----------------------------------------------------
-console.log('\nTest Area 10: RouterOS Time Format Parsing');
-{
-    const timeFormats = [
-        { raw: '1d02:30:45', expectedDesc: '1 day, 2 hours, 30 min, 45 sec' },
-        { raw: '12h30m', expectedDesc: '12 hours, 30 min' },
-        { raw: '00:15:30', expectedDesc: '15 min, 30 sec' },
-        { raw: '1w2d04:10:20', expectedDesc: '1 week, 2 days, 4 hours' },
-        { raw: '45s', expectedDesc: '45 sec' },
-        { raw: '3d', expectedDesc: '3 days' },
-        { raw: '2w', expectedDesc: '2 weeks' }
-    ];
-
-    for (const tf of timeFormats) {
-        const res = runStatusScript({
-            'username': 'time_parser_test',
-            'session-time-left': tf.raw,
-            'session-time-left-secs': '0'
-        });
-
-        assert(res.errors.length === 0, `Parsed format "${tf.raw}" without errors`);
-        assert(!res.elements['time-rem'].textContent.includes('غير محدد') &&
-               !res.elements['time-rem'].textContent.includes('NaN'),
-               `Valid Arabic representation for ${tf.raw}`,
-               `Got: "${res.elements['time-rem'].textContent}"`);
-    }
-}
-
-// ----------------------------------------------------
-// Test Area 11: Progression of Simulated Live Timers
-// ----------------------------------------------------
-console.log('\nTest Area 11: Live Timers Tick Progression (Advancing Time)');
-{
-    const res = runStatusScript({
-        'username': 'tick_user',
-        'uptime-secs': '10',
-        'session-time-left-secs': '3'
-    });
-
-    const tick = res.getIntervalFn();
-    assert(typeof tick === 'function', 'Live interval timer registered');
-
-    // Initial state: Uptime 10s -> "00:10", Remaining 3s
-    assert(res.elements['uptime-display'].textContent === '00:10',
-           'Initial uptime is 00:10', `Got: "${res.elements['uptime-display'].textContent}"`);
-
-    // Tick 1
-    tick();
-    assert(res.elements['uptime-display'].textContent === '00:11',
-           'Uptime advances to 00:11 on tick 1', `Got: "${res.elements['uptime-display'].textContent}"`);
-
-    // Tick 2
-    tick();
-    assert(res.elements['uptime-display'].textContent === '00:12',
-           'Uptime advances to 00:12 on tick 2');
-
-    // Tick 3: Remaining should reach 0 and show expired
-    tick();
-    assert(res.elements['time-rem'].textContent.includes('انتهت الجلسة'),
-           'Remaining session time decrements and triggers expired state at 0',
-           `Got: "${res.elements['time-rem'].textContent}"`);
-}
-
-// ----------------------------------------------------
-// Test Area 12: Package Identification
-// ----------------------------------------------------
-console.log('\nTest Area 12: Package Identification (Group, Class, and Byte Match)');
-{
-    // 12a: By Group
-    const resGroup = runStatusScript({
-        'username': 'u1',
-        'radius3-14988': '3000RY'
-    });
-    assert(resGroup.elements['active-pkg-text'].textContent.includes('3,000'),
-           'Matches 3000RY package via radiusGroup');
-
-    // 12b: By Class
-    const resClass = runStatusScript({
-        'username': 'u2',
-        'radius25': '1000RY'
-    });
-    assert(resClass.elements['active-pkg-text'].textContent.includes('1,000'),
-           'Matches 1000RY package via Class attribute');
-}
-
-// ----------------------------------------------------
-// Test Area 13: Valid JSON Output from api.json (RFC 8908)
-// ----------------------------------------------------
-console.log('\nTest Area 13: Captive Portal API (api.json) RFC 8908 Validity');
-{
-    // 13a: Logged in with limits
-    const jsonStr1 = evaluateApiJson({
-        'logged-in': 'yes',
-        'link-login-only': 'http://10.0.0.1/login',
-        'session-timeout-secs': '3600',
-        'remain-bytes-total': '104857600'
-    });
-    let parsed1;
-    try {
-        parsed1 = JSON.parse(jsonStr1);
-    } catch(e) {
-        parsed1 = null;
-    }
-    assert(parsed1 !== null, 'Valid JSON when logged-in with timeout and bytes');
-    assert(parsed1 && parsed1.captive === false, 'Captive is false when logged in');
-    assert(parsed1 && parsed1['bytes-remaining'] === 104857600, 'Exact bytes-remaining in JSON');
-
-    // 13b: Logged in without optional limits
-    const jsonStr2 = evaluateApiJson({
-        'logged-in': 'yes',
-        'link-login-only': 'http://10.0.0.1/login',
-        'session-timeout-secs': '0',
-        'remain-bytes-total': ''
-    });
-    let parsed2;
-    try {
-        parsed2 = JSON.parse(jsonStr2);
-    } catch(e) {
-        parsed2 = null;
-    }
-    assert(parsed2 !== null, 'Valid JSON when logged-in with NO limits');
-    assert(parsed2 && !('bytes-remaining' in parsed2), 'bytes-remaining cleanly omitted without syntax error');
-
-    // 13c: Logged out (captive)
-    const jsonStr3 = evaluateApiJson({
-        'logged-in': 'no',
-        'link-login-only': 'http://10.0.0.1/login'
-    });
-    let parsed3;
-    try {
-        parsed3 = JSON.parse(jsonStr3);
-    } catch(e) {
-        parsed3 = null;
-    }
-    assert(parsed3 !== null, 'Valid JSON when logged out');
-    assert(parsed3 && parsed3.captive === true, 'Captive is true when logged out');
-}
-
-// ----------------------------------------------------
-// Test Area 14: Login-to-Status Navigation Behavior
-// ----------------------------------------------------
-console.log('\nTest Area 14: Navigation & Redirection Security (alogin.html)');
-{
-    const aloginPath = path.join(__dirname, '..', 'alogin.html');
-    let aloginHtml = fs.readFileSync(aloginPath, 'utf8');
-
-    // Extract script from alogin.html
-    const scriptMatch = aloginHtml.match(/<script>([\s\S]*?)<\/script>/);
-    assert(scriptMatch !== null, 'alogin.html contains redirection script');
-
-    // Test malicious javascript: URI injection
-    let injectedScript = scriptMatch[1].replace('\$(link-redirect)', 'javascript:alert(1)');
-    injectedScript = injectedScript.replace('\$(link-status)', 'status.html');
-
+function aloginTarget(encodedTarget) {
+    const script = aloginHtml.match(/<script>([\s\S]*?)<\/script>/)[1]
+        .split('$(link-status-esc)').join(encodedTarget);
+    const window = { location: { href: 'http://ak.net/alogin', origin: 'http://ak.net' } };
     const sandbox = {
-        window: { location: { href: '' } },
-        document: { addEventListener: () => {}, getElementById: () => ({ href: '' }) },
-        setTimeout: (fn) => fn()
+        window,
+        document: { addEventListener() {}, getElementById() { return { href: '' }; } },
+        URL,
+        decodeURIComponent,
+        setTimeout() {}
     };
     vm.createContext(sandbox);
-    vm.runInContext(injectedScript, sandbox);
-
-    assert(!sandbox.window.location.href.startsWith('javascript:'),
-           'Guards against javascript: URI execution in redirection',
-           `Redirected to: ${sandbox.window.location.href}`);
-    assert(sandbox.window.location.href === 'status.html',
-           'Safely falls back to status.html when target is invalid or malicious');
+    vm.runInContext(script, sandbox);
+    return sandbox.getRedirectTarget();
 }
 
-// ----------------------------------------------------
-// Test Area 15: Production Build Without Diagnostics Exposure
-// ----------------------------------------------------
-console.log('\nTest Area 15: Production Hardening (No Diagnostics in Production)');
+console.log('AK Net frontend audit — exact simulated checks');
+
+console.log('\n1. Successful login flow');
+assert(loginHtml.includes('name="dst" value="$(link-status)"'), 'login posts a status destination');
+assert(aloginHtml.includes('$(link-status-esc)'), 'post-login page resolves the RouterOS status link');
+
+console.log('\n2. CHAP authentication integration');
 {
-    const prodStatusHtml = fs.readFileSync(path.join(__dirname, '..', 'status.html'), 'utf8');
-
-    assert(!prodStatusHtml.includes('id="diag-panel"'),
-           'diag-panel completely removed from production status.html');
-    assert(!prodStatusHtml.includes('renderDiagnostics'),
-           'renderDiagnostics function completely removed from production status.html');
-    assert(fs.existsSync(path.join(__dirname, '..', 'dev', 'status-diagnostics.html')),
-           'Separate dev/status-diagnostics.html exists for development testing');
+    const chapScript = loginHtml.match(/<script src="md5\.js"><\/script>\s*<script>([\s\S]*?)<\/script>/)[1]
+        .split('$(chap-id)').join('A').split('$(chap-challenge)').join('B');
+    let submitted = false;
+    const document = {
+        login: { username: { value: 'card1' }, password: { value: 'card1' } },
+        sendin: { username: {}, password: {}, submit() { submitted = true; } },
+        getElementById() { return { textContent: '' }; }
+    };
+    const sandbox = { document, hexMD5(value) { return 'md5:' + value; } };
+    vm.createContext(sandbox);
+    vm.runInContext(chapScript, sandbox);
+    assertEqual(sandbox.doLogin(), false, 'CHAP handler prevents the plain form submit');
+    assertEqual(document.sendin.password.value, 'md5:Acard1B', 'CHAP hashes id + password + challenge in order');
+    assert(submitted, 'CHAP hidden form is submitted');
 }
 
-// ----------------------------------------------------
-// Test Area 16: Cumulative Usage vs Current-Session Usage
-// ----------------------------------------------------
-console.log('\nTest Area 16: Cumulative Usage vs Current-Session Usage Isolation');
+console.log('\n3. Correct username display');
 {
-    // User has 5 GiB package (1000RY). In this session they consumed only 50 MiB.
-    // If the router does NOT pass remain-bytes-total, the system MUST NOT subtract 50 MiB
-    // from 5 GiB and claim the user has 4.95 GiB remaining!
-    const res = runStatusScript({
-        'username': 'repeat_user',
-        'bytes-in': '10485760',   // 10 MiB
-        'bytes-out': '41943040',  // 40 MiB
-        'radius3-14988': '1000RY' // 5 GiB plan
-    });
-
-    assert(res.elements['data-used'].textContent.trim() === '50 ميغابايت',
-           'Session usage accurately reflects only current session: 50 MiB');
-    assert(res.elements['data-rem'].textContent.trim() === 'يُدار عبر السيرفر',
-           'Never fabricates remaining quota by subtracting single session from package',
-           `Got: "${res.elements['data-rem'].textContent}"`);
-    assert(res.elements['package-total-val'].textContent.trim() === '5 جيجابايت',
-           'Package total accurately reflects advertised capacity: 5 GiB');
+    const result = runStatus({ username: 'Ahmed+User' });
+    assertEqual(text(result, 'user-display'), 'Ahmed User', 'URL-escaped username is decoded into textContent');
 }
 
-console.log('\n================================================================');
-console.log(`Final Test Results: ${passed} Passed, ${failed} Failed`);
-console.log('================================================================');
+console.log('\n4. Connection status handling');
+assertEqual(text(runStatus({ loggedIn: 'yes' }), 'connection-status'), 'جلسة HotSpot مصادق عليها', 'authenticated session is described without claiming internet access');
+assertEqual(text(runStatus({ loggedIn: 'unexpected' }), 'connection-status'), 'حالة الجلسة غير متاحة', 'unexpected state degrades safely');
 
-if (failed > 0) process.exit(1);
+console.log('\n5. Session uptime');
+assertEqual(text(runStatus({ uptimeSecs: '3661' }), 'uptime-display'), '01:01:01', 'uptime seconds format exactly');
+
+console.log('\n6. Download and upload counters');
+{
+    const result = runStatus({ bytesOut: '1048576', bytesIn: '524288' });
+    assertEqual(text(result, 'download-val'), '1 MiB', 'bytes-out maps to download');
+    assertEqual(text(result, 'upload-val'), '512 KiB', 'bytes-in maps to upload');
+}
+
+console.log('\n7. Accurate session data total');
+assertEqual(text(runStatus({ bytesOut: '1048576', bytesIn: '524288' }), 'data-used'), '1.5 MiB', 'session total is download plus upload only');
+
+console.log('\n8. Combined remaining quota');
+{
+    const result = runStatus({ remainBytesTotal: '1073741824', limitBytesTotal: '2147483648' });
+    assertEqual(text(result, 'data-rem'), '1 GiB', 'combined remainder is exact');
+    assertEqual(text(result, 'progress-percent-text'), 'مستهلك 50%', 'progress uses a matching local combined limit');
+}
+
+console.log('\n9. Separate directional quota limits');
+{
+    const result = runStatus({ remainBytesOut: '104857600', remainBytesIn: '52428800' });
+    assertEqual(text(result, 'data-rem'), 'حصص اتجاهية منفصلة', 'directional values are not combined');
+    assertEqual(text(result, 'data-rem-sub'), 'تنزيل: 100 MiB | رفع: 50 MiB', 'both directions retain their labels');
+}
+
+console.log('\n10. Missing quota information');
+assertEqual(text(runStatus({}), 'data-rem'), 'غير متاح', 'missing quota stays unavailable');
+
+console.log('\n11. Explicit zero remaining quota');
+assertEqual(text(runStatus({ remainBytesTotal: '0' }), 'data-rem-sub'), 'الحد المحلي الإجمالي مستنفد', 'numeric zero is treated as exhausted, not missing');
+
+console.log('\n12. Unlimited local values versus unknown User Manager quota');
+{
+    const result = runStatus({ remainBytesTotal: '---', limitBytesTotal: '---', radiusGroup: '1000RY' });
+    assertEqual(text(result, 'data-rem'), 'غير متاح', 'no local limit never proves an unlimited subscription');
+    assertEqual(text(result, 'package-total-val'), '5 GiB', 'known package capacity remains separate from remaining balance');
+}
+
+console.log('\n13. 5, 18, 40, 80, and 170 GiB Gigawords calculations');
+[
+    ['1073741824', '1', '5 GiB'],
+    ['2147483648', '4', '18 GiB'],
+    ['0', '10', '40 GiB'],
+    ['0', '20', '80 GiB'],
+    ['2147483648', '42', '170 GiB']
+].forEach(([low, giga, expected]) => {
+    const result = runStatus({ radiusTotalLimitLow: low, radiusTotalLimitGiga: giga });
+    assertEqual(text(result, 'package-total-val'), expected, 'Gigawords package resolves to ' + expected);
+});
+
+console.log('\n14. Correct package identification and confidence');
+{
+    const confirmed = runStatus({ radiusClass: 'plan%3D3000RY' });
+    assert(text(confirmed, 'active-pkg-text').includes('موثقة عبر سمة RADIUS'), 'Class token produces confirmed confidence');
+    const inferred = runStatus({ radiusTotalLimitLow: '0', radiusTotalLimitGiga: '20' });
+    assert(text(inferred, 'active-pkg-text').includes('مستدل عليها'), 'byte match is explicitly inferred');
+}
+
+console.log('\n15. Unknown package handling');
+assertEqual(text(runStatus({ radiusGroup: 'default' }), 'active-pkg-text'), 'لم يتم التعرف على الباقة', 'unknown group uses the required wording');
+
+console.log('\n16. Session timeout and countdown semantics');
+{
+    const result = runStatus({ uptimeSecs: '1800', sessionTimeoutSecs: '3600' });
+    assertEqual(text(result, 'time-rem-sub'), 'متبقي للجلسة: 01:00:00', 'session-timeout-secs is already remaining and is not reduced by uptime');
+}
+
+console.log('\n17. Unavailable subscription expiration');
+assertEqual(text(runStatus({ radiusGroup: '200RY' }), 'subscription-expiry'), 'تاريخ انتهاء الاشتراك غير متاح', 'package validity is not presented as an expiration timestamp');
+
+console.log('\n18. RouterOS time parsing');
+{
+    const result = runStatus({ sessionTimeLeft: '1w2d04%3A10%3A20' });
+    assertEqual(text(result, 'time-rem-sub'), 'متبقي للجلسة: 9d 04:10:20', 'week/day/clock format parses exactly');
+    const noLimit = runStatus({ sessionTimeLeftSecs: '0', sessionTimeLeft: '' });
+    assertEqual(text(noLimit, 'time-rem'), 'غير متاح', 'bare zero seconds without an explicit zero time is not called expired');
+}
+
+console.log('\n19. Live timer progression');
+{
+    const result = runStatus({ uptimeSecs: '10', sessionTimeLeftSecs: '2' });
+    assertEqual(result.intervalMs, 1000, 'live timer uses a one-second interval');
+    result.tick();
+    assertEqual(text(result, 'uptime-display'), '00:00:11', 'uptime advances by one second');
+    assertEqual(text(result, 'time-rem-sub'), 'متبقي للجلسة: 00:00:01', 'remaining time decrements once');
+    result.tick();
+    assertEqual(text(result, 'time-rem'), 'انتهى وقت الجلسة', 'countdown reaches an explicit expired state');
+}
+
+console.log('\n20. Login and logout navigation');
+assert(statusHtml.includes('$(link-logout)?erase-cookie=on'), 'logout requests cookie erasure');
+assert(logoutHtml.includes('href="$(link-login-only)"'), 'logout page starts a clean new login');
+
+console.log('\n21. Unsafe redirect rejection');
+assertEqual(aloginTarget('javascript%3Aalert%281%29'), 'status', 'javascript URL is rejected');
+assertEqual(aloginTarget('data%3Atext%2Fhtml%2Cbad'), 'status', 'data URL is rejected');
+assertEqual(aloginTarget('https%3A%2F%2Fevil.example%2Fstatus'), 'status', 'cross-origin URL is rejected');
+assertEqual(aloginTarget('http%3A%2F%2Fak.net%2Fstatus'), 'http://ak.net/status', 'same-origin HTTP status URL is accepted');
+
+console.log('\n22. XSS prevention');
+{
+    const payload = '%3Cimg%20src%3Dx%20onerror%3Dalert%281%29%3E';
+    const result = runStatus({ username: payload, radiusClass: payload });
+    assertEqual(text(result, 'user-display'), '<img src=x onerror=alert(1)>', 'untrusted username is rendered as literal text');
+    assertEqual(result.elements['user-display'].innerHTML, '', 'no HTML sink is used for the username');
+    assert(!statusScript.includes('.innerHTML'), 'status runtime contains no innerHTML assignment');
+    assert(errorHtml.includes("detail.textContent = translated || original"), 'error text uses textContent');
+    assert(!errorHtml.includes('<div class="error-text">$(error-orig)'), 'raw error text is not injected into HTML');
+}
+
+console.log('\n23. api.json validity');
+{
+    const active = evaluateApi({ 'logged-in': 'yes', 'link-login-only': 'http://ak.net/login', 'session-timeout-secs': '60', 'remain-bytes-total': '1024' });
+    assertEqual(active.captive, false, 'active API response is valid and non-captive');
+    assertEqual(active['seconds-remaining'], 60, 'API seconds are numeric');
+    assertEqual(active['bytes-remaining'], 1024, 'API bytes are numeric');
+    const captive = evaluateApi({ 'logged-in': 'no', 'link-login-only': 'http://ak.net/login', 'session-timeout-secs': '0', 'remain-bytes-total': '' });
+    assertEqual(captive.captive, true, 'logged-out API response remains valid JSON');
+}
+
+console.log('\n24. Mobile layout');
+assert(statusHtml.includes('width=device-width'), 'status page declares a responsive viewport');
+assert(/@media\s*\(max-width:\s*480px\)/.test(statusHtml), 'status page has a small-screen breakpoint');
+assert(/grid-template-columns:\s*1fr/.test(statusHtml), 'mobile cards collapse to one column');
+
+console.log('\n25. Production build without debugging information');
+{
+    const production = [statusHtml, statusScript, loginHtml, aloginHtml, logoutHtml, errorHtml, radvertHtml].join('\n');
+    assert(!production.includes('id="diag-panel"'), 'diagnostic panel is absent');
+    assert(!production.includes('renderDiagnostics'), 'diagnostic renderer is absent');
+    assert(!production.includes('chap-debug'), 'CHAP debug element is absent');
+    assert(!production.includes('console.log') && !production.includes('console.error'), 'production pages contain no console diagnostics');
+    assert(!loginHtml.includes('اسبوعين') && loginHtml.includes('170</span>'), 'all seven package cards use corrected metadata');
+}
+
+console.log('\nResults: ' + passed + ' passed, ' + failed + ' failed');
+if (failed) process.exit(1);

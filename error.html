@@ -179,7 +179,7 @@
             
             <div class="error-message-box">
                 <div class="error-title">حدث خطأ!</div>
-                <div class="error-text">$(error-orig)<br>$(if error)$(error)$(endif)</div>
+                <div class="error-text" id="error-detail" role="alert">تعذر إكمال الطلب.</div>
             </div>
             
             <a href="$(link-login)" class="back-btn">
@@ -200,5 +200,17 @@
             </div>
         </div>
     </div>
+    <script>
+        (function () {
+            function decode(value) {
+                if (!value || value.indexOf('$(') !== -1) return '';
+                try { return decodeURIComponent(value.replace(/\+/g, ' ')); } catch (ignore) { return ''; }
+            }
+            var translated = decode('$(error-esc)');
+            var original = decode('$(error-orig-esc)');
+            var detail = document.getElementById('error-detail');
+            if (detail) detail.textContent = translated || original || 'تعذر إكمال الطلب.';
+        }());
+    </script>
 </body>
 </html>

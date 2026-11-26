@@ -1,121 +1,62 @@
-# تقرير التدقيق المعماري لتوافق MikroTik RouterOS 7 و User Manager v7
-> **AK Net HotSpot Portal — Technical Architecture, Variable Audit & Compatibility Report**
+# RouterOS 7 HotSpot compatibility audit
 
----
+Audit target: AK Net static HotSpot frontend on RouterOS 7.23.8 with RADIUS/User Manager v7. This classification follows the official [HotSpot customization](https://help.mikrotik.com/docs/spaces/ROS/pages/87162881/Hotspot%20customisation), [HotSpot captive portal](https://help.mikrotik.com/docs/spaces/ROS/pages/56459266/HotSpot%2B-%2BCaptive%2Bportal), [RADIUS](https://help.mikrotik.com/docs/spaces/ROS/pages/328097/RADIUS), and [User Manager](https://help.mikrotik.com/docs/spaces/ROS/pages/2555940/User%2BManager) documentation.
 
-## 1. الفروقات المعمارية الجوهرية: RouterOS 6 مقابل RouterOS 7
+## Classification
 
-شهد نظام **RouterOS 7** إعادة كتابة كاملة للعديد من الأنظمة الأساسية، وخاصة نظام **User Manager (v7)** ونواة إدارة الذاكرة وشبكات الـ Linux Kernel (5.6.3+):
+| Template expression | Classification | Portal use |
+|---|---|---|
+| `username`, `ip`, `mac`, `logged-in` | 1 — officially documented | Identity and authenticated HotSpot-session state. `logged-in=yes` does not prove wider internet reachability. |
+| `link-login`, `link-login-only`, `link-logout`, `link-status`, `link-orig` | 1 — officially documented | Local servlet navigation. Untrusted/original destinations are not used after login. |
+| `link-redirect` | 2 — supported in RouterOS redirect/advertisement page flow | Retained in RouterOS redirect and WISPr compatibility templates. Browser JavaScript accepts only HTTP(S) advertisement targets. |
+| Any documented variable with `-esc` suffix | 1 — officially documented escaping form | Used before putting template text into JavaScript or URLs. |
+| `hostname` | 1 — officially documented | Used by the stock WISPr XML compatibility pages. It is not displayed as administration information. |
+| `location-id`, `location-name` | 2 — conditional WISPr/HotSpot location data | Retained only in the XML login compatibility response. |
+| `chap-id`, `chap-challenge`, `error` | 2 — documented, login-page-only | HTTP-CHAP and login errors. `md5.js` must load before CHAP submission. |
+| `error-orig` | 2 — documented, login-page-only | Error fallback; decoded and inserted with `textContent` on the visual error page. |
+| `http-status`, `http-header` | 1 — documented response-control expressions | Used by RouterOS redirect response templates; these expressions set response metadata rather than test ordinary values. |
+| `uptime`, `uptime-secs` | 1 — officially documented | Current HotSpot session uptime only. |
+| `session-time-left`, `session-time-left-secs` | 2 — conditional on a session time limit | Remaining current-session time. Values are used directly. |
+| `session-timeout`, `session-timeout-secs` | 2 — conditional; documented as time left | Fallback remaining current-session time. Uptime must not be subtracted again. |
+| `bytes-in`, `bytes-out` | 2 — documented, status traffic counters | Current-session upload and download respectively. |
+| `bytes-in-nice`, `bytes-out-nice` | 2 — documented, status traffic counters | Not used for calculations; numeric counters are formatted consistently by the frontend. |
+| `remain-bytes-in`, `remain-bytes-out` | 2 — conditional on directional local limits | Displayed separately. `---` means no such local limit is exposed; it does not prove an unlimited User Manager subscription. |
+| `remain-bytes-total` | 2 — used by MikroTik's documented captive-portal API | Highest-priority combined remainder when it resolves to a numeric value. |
+| `limit-bytes-total` | 3 — template use is not listed in the official HotSpot variable table | Used only as an optional, resolved numeric denominator for a local progress bar; never required and never used to infer remaining quota. |
+| `limit-bytes-in`, `limit-bytes-out` | 1 as documented HotSpot status values, conditional when no limit | Retained for compatibility input; the UI does not combine directional limits. |
+| `bytes-total-nice` | 3 — undocumented/unverified template expression | Removed from calculations. Total is `bytes-in + bytes-out`. |
+| `radius<id>`, `radius<id>u`, `radius<id>-<vendor>`, `radius<id>-<vendor>u` | 2 — official generic syntax, only when RADIUS authentication/attribute is present | Treated as conditional evidence, never as guaranteed User Manager data. |
+| `radius3-14988` (`Mikrotik-Group`) | 2 — conditional | Exact AK package token may confirm a package; generic groups do not. |
+| `radius25` (`Class`) | 2 — conditional | Exact AK package token may confirm a package. `Class` is otherwise an opaque accounting cookie. |
+| `radius1/2/14/15/17/18-14988u` | 2 — conditional; numeric IDs documented | Low-word/Gigawords calculation. Exact capacity matches are labeled inferred, not confirmed account data. |
+| `radius8-14988`, `radius27u` | 2 — conditional | Audited but not needed by the production dashboard. The official session variables are preferred. |
+| `radius18[n]` in `xml/*.html` | 3 — legacy/stock WISPr array syntax, not documented in the current variable table | Retained only for stock WISPr reply-message compatibility and never trusted by the visual dashboard. |
+| `error-type` in `xml/login.html` | 3 — legacy/stock XML conditional, not listed in the current variable table | Retained only for RouterOS WISPr error compatibility. |
+| User Manager active profile name | 4 — unavailable as a documented HotSpot variable | Shown only if a verified RADIUS attribute contains an exact package token; otherwise “لم يتم التعرف على الباقة”. |
+| User Manager cumulative transfer usage/balance | 4 — unavailable from documented session counters | Never estimated from current-session traffic. |
+| User Manager `user-profile end-time` | 4 — unavailable as a documented HotSpot variable | Always “تاريخ انتهاء الاشتراك غير متاح”. |
+| User Manager `$(userprofname)` / `$(userprofendtime)` | 4 for HotSpot pages | These are documented voucher-template variables, not HotSpot servlet variables. |
 
-### أ) نظام User Manager:
-* **في RouterOS 6:** كان User Manager يعتمد على محرك قواعد بيانات داخلي خاص مدمج ومقترن بشكل وثيق بواجهة الهوتسبوت، حيث كان يقوم في بعض الحالات بحقن الحصص المتبقية مباشرة في جدول الجلسات النشطة `/ip hotspot active`.
-* **في RouterOS 7:** تم بناء User Manager v7 كلياً كخادم RADIUS مستقل يعمل فوق قاعدة بيانات **SQLite 3** معيارية (`/user-manager`). الاتصال بين خادم الـ HotSpot وخادم الـ User Manager يتم حصرياً عبر **بروتوكول RADIUS القياسي (RFC 2865 / RFC 2866)** عبر منفذي UDP (1812 للمصادقة و 1813 للمحاسبة).
+## Direction mapping
 
-### ب) تتبع الحصص والاستهلاك:
-* في RouterOS 7، يدير User Manager سجلات استهلاك المستخدم التراكمي وتاريخ الصلاحية التقويمي داخل قاعدة بيانات SQLite عبر حزم **RADIUS Accounting Interim-Updates**.
-* خادم الهوتسبوت في المتصفح يستقبل فقط القيم الممررة داخل حزمة `Access-Accept` أثناء لحظة تسجيل الدخول.
-* إذا لم يتم تكوين سمات RADIUS صريحة للحدود داخل مجموعة المستخدم (`/user-manager/user/group`)، فإن خادم Hotspot يترك متغيرات الحصص المتبقية فارغة أو يعتبرها غير محدودة محلياً، معتمداً على قيام خادم User Manager بإرسال أمر فصل للجلسة (CoA / Disconnect-Request) عند نفاد الرصيد.
+On the HotSpot status page, `bytes-in` is traffic received from the client (upload) and `bytes-out` is traffic sent to the client (download). The dashboard follows that router-centric definition.
 
----
+## Gigawords
 
-## 2. جدول التدقيق الشامل لمتغيرات قوالب الهوتسبوت
+For a received RADIUS limit, the calculation is:
 
-| المتغير في القالب | مدعوم رسمياً في ROS 7 | طبيعة البيانات | الملاحظات الفنية والمعمارية |
-| :--- | :---: | :--- | :--- |
-| `$(username)` | ✅ مدعوم | نصي | اسم المستخدم المعتمد في الجلسة |
-| `$(ip)` | ✅ مدعوم | نصي (IPv4) | عنوان IP المسند للجهاز |
-| `$(mac)` | ✅ مدعوم | نصي (MAC) | عنوان MAC الفعلي للجهاز |
-| `$(uptime)` | ✅ مدعوم | نصي منسق | مدة الاتصال للجلسة الحالية (e.g. `10m25s` أو `01:15:30`) |
-| `$(uptime-secs)` | ✅ مدعوم | عدد صحيح | مدة الاتصال للجلسة الحالية بالثواني |
-| `$(session-time-left)` | ✅ مدعوم | نصي منسق | الوقت المتبقي للجلسة الحالية (أو فارغ عند عدم وجود سقف) |
-| `$(session-time-left-secs)`| ✅ مدعوم | عدد صحيح | الثواني المتبقية للجلسة الحالية (RouterOS يحسبها تنازلياً) |
-| `$(session-timeout)` | ✅ مدعوم | نصي منسق | الحد الأقصى للجلسة المسموح به للمستخدم |
-| `$(session-timeout-secs)` | ✅ مدعوم | عدد صحيح | الحد الأقصى للجلسة بالثواني |
-| `$(bytes-in)` | ✅ مدعوم | عدد صحيح | البايتات المرفوعة (Upload) في الجلسة الحالية فقط |
-| `$(bytes-out)` | ✅ مدعوم | عدد صحيح | البايتات المنزلة (Download) في الجلسة الحالية فقط |
-| `$(bytes-in-nice)` | ✅ مدعوم | نصي منسق | حجم الرفع منسقاً (e.g. `12.5 MiB`) |
-| `$(bytes-out-nice)` | ✅ مدعوم | نصي منسق | حجم التنزيل منسقاً (e.g. `150.2 MiB`) |
-| `$(bytes-total-nice)` | ⚠️ غير قياسي | نصي منسق | غير موثق في جدول متغيرات Hotspot الرسمي بـ ROS 7؛ تم تأمينه برمجياً بحساب مجموع الرفع والتنزيل وتنسيقه عربياً بدقة |
-| `$(remain-bytes-total)` | ✅ مدعوم | عدد صحيح | الرصيد الكلي المتبقي للجلسة (أو `---` عند عدم وجود حد) |
-| `$(remain-bytes-out)` | ✅ مدعوم | عدد صحيح | الرصيد المتبقي للتنزيل فقط |
-| `$(remain-bytes-in)` | ✅ مدعوم | عدد صحيح | الرصيد المتبقي للرفع فقط |
-| `$(limit-bytes-total)` | ✅ مدعوم | عدد صحيح | الحد الإجمالي للجلسة الممرر من الراوتر |
-| `$(limit-bytes-out)` | ✅ مدعوم | عدد صحيح | حد التنزيل للجلسة |
-| `$(limit-bytes-in)` | ✅ مدعوم | عدد صحيح | حد الرفع للجلسة |
+`bytes = low_word + gigawords × 4,294,967,296`
 
----
+The seven configured package capacities are 800 MiB, 2 GiB, 5 GiB, 18 GiB, 40 GiB, 80 GiB, and 170 GiB. Their validity metadata is 1, 3, 7, 30, 30, 30, and 30 days. Validity is reference metadata only; it is never converted into an expiration timestamp.
 
-## 3. تدقيق سمات RADIUS وحسابات الـ Gigawords للبيانات الضخمة
+## Security decisions
 
-### معضلة الـ 32-bit:
-أكبر قيمة يمكن تمثيلها في عدد صحيح غير إشاري 32-bit هي:
-$$2^{32} - 1 = 4,294,967,295 \text{ Bytes} \approx 4.29 \text{ GB}$$
+- Browser-visible text values use the template `-esc` form, are decoded in JavaScript, and reach the DOM through `textContent`.
+- Status navigation accepts only same-origin HTTP(S) or a local fallback.
+- The login destination is the RouterOS `link-status`, not an attacker-controlled original URL.
+- No RouterOS credential, API secret, diagnostic panel, console logging, or external runtime dependency is included.
+- The `/um/` management/reporting link was removed from the subscriber status modal.
 
-أي باقة تتجاوز 4.29GB (مثل باقات شبكة AK Net: 5GB, 18GB, 40GB, 80GB, 170GB) لا يمكن إرسالها كعدد 32-bit مباشر، بل تستخدم ميكروتك سمات **Gigawords**:
+## Physical-router limitation
 
-$$\text{Total Bytes} = (\text{Gigawords} \times 4,294,967,296) + \text{Low-Word}$$
-
-### جدول السمات المعتمد (MikroTik Vendor ID: 14988):
-| السمة (VSA) | المعرف في القالب | النوع | الوظيفة |
-| :--- | :--- | :--- | :--- |
-| `Mikrotik-Total-Limit` | `$(radius17-14988u)` | 32-bit uint | الحصة الإجمالية المنخفضة (بايت) |
-| `Mikrotik-Total-Limit-Gigawords` | `$(radius18-14988u)` | 32-bit uint | مضاعفات الـ 4GB للحصة الإجمالية |
-| `Mikrotik-Recv-Limit` | `$(radius1-14988u)` | 32-bit uint | حد التنزيل المنخفض |
-| `Mikrotik-Recv-Limit-Gigawords` | `$(radius14-14988u)` | 32-bit uint | مضاعفات 4GB لحد التنزيل |
-| `Mikrotik-Xmit-Limit` | `$(radius2-14988u)` | 32-bit uint | حد الرفع المنخفض |
-| `Mikrotik-Xmit-Limit-Gigawords` | `$(radius15-14988u)` | 32-bit uint | مضاعفات 4GB لحد الرفع |
-| `Mikrotik-Group` | `$(radius3-14988)` | String | اسم المجموعة أو الفئة المسندة للمستخدم |
-| `Mikrotik-Rate-Limit` | `$(radius8-14988)` | String | قيود السرعة المحددة (e.g. `2M/5M`) |
-| `Class` (RFC 2865 Attr 25) | `$(radius25)` | String | سمة الفئة القياسية |
-| `Session-Timeout` (RFC 2865 Attr 27) | `$(radius27u)` | 32-bit uint | مهلة الجلسة بالثواني |
-
-### الحسابات الدقيقة لباقات AK Net الرسمية:
-
-1. **باقة 200 ريال (800MB):**
-   - الحجم بالبايت: $800 \times 1024^2 = 838,860,800$ بايت.
-   - `Total-Limit` = `838860800`، `Gigawords` = `0`.
-2. **باقة 500 ريال (2GB):**
-   - الحجم بالبايت: $2 \times 1024^3 = 2,147,483,648$ بايت.
-   - `Total-Limit` = `2147483648`، `Gigawords` = `0`.
-3. **باقة 1000 ريال (5GB):**
-   - الحجم بالبايت: $5 \times 1024^3 = 5,368,709,120$ بايت.
-   - `Gigawords` = $\lfloor 5368709120 / 4294967296 \rfloor = 1$.
-   - `Total-Limit` = $5368709120 - (1 \times 4294967296) = 1,073,741,824$.
-4. **باقة 3000 ريال (18GB):**
-   - الحجم بالبايت: $18 \times 1024^3 = 19,327,352,832$ بايت.
-   - `Gigawords` = $\lfloor 19327352832 / 4294967296 \rfloor = 4$.
-   - `Total-Limit` = $19327352832 - (4 \times 4294967296) = 2,147,483,648$.
-5. **باقة 6000 ريال (40GB):**
-   - الحجم بالبايت: $40 \times 1024^3 = 42,949,672,960$ بايت.
-   - `Gigawords` = $\lfloor 42949672960 / 4294967296 \rfloor = 10$.
-   - `Total-Limit` = `0`.
-6. **باقة 10000 ريال (80GB):**
-   - الحجم بالبايت: $80 \times 1024^3 = 85,899,345,920$ بايت.
-   - `Gigawords` = $\lfloor 85899345920 / 4294967296 \rfloor = 20$.
-   - `Total-Limit` = `0`.
-7. **باقة 20000 ريال (170GB):**
-   - الحجم بالبايت: $170 \times 1024^3 = 182,536,110,080$ بايت.
-   - `Gigawords` = $\lfloor 182536110080 / 4294967296 \rfloor = 42$.
-   - `Total-Limit` = $182536110080 - (42 \times 4294967296) = 2,147,483,648$.
-
----
-
-## 4. تدقيق الأمان والموثوقية
-
-1. **إلغاء لوحة التشخيص العامة من الإنتاج:**
-   - تم استئصال عنصر `diag-panel` ودالة `renderDiagnostics` كلياً من ملف الإنتاج `status.html` لضمان عدم إمكانية استدعائها أو استعراض المتغيرات الداخلية من قِبل أي مستخدم خارجي.
-   - تم عزل أداة الفحص داخل ملف مستقل مخصص لبيئة المختبر: `dev/status-diagnostics.html`.
-2. **منع ثغرات XSS:**
-   - تم استبدال جميع عمليات الإسناد عبر `innerHTML` لتصبح حصراً عبر `textContent` لمنع أي هجمات حقن برمجية حتى لو مرر خادم الـ RADIUS أو الـ HotSpot قيماً خبيثة في أسماء المستخدمين أو الفئات.
-3. **تأمين التوجيه في `alogin.html`:**
-   - إضافة فحص لمنع التوجيه عبر روابط `javascript:` وتأمين العودة لصفحة الحالة.
-4. **مطابقة معيار RFC 8908 (`api.json`):**
-   - التحقق الصارم من صحة صيغة JSON في جميع الحالات (تسجيل دخول نشط، تسجيل خروج، غياب الحصص، أو وجود حدود زمنية ورصيد).
-
----
-
-## 5. القيود الفنية المتبقية وخارطة الطريق
-
-* **الاستعلام عن الرصيد التراكمي وتاريخ الانتهاء التقويمي:**
-  - في حال رغبة المشغلين مستقبلاً في إظهار تاريخ انتهاء الكرت الفعلي باليوم والشهر والساعة، يتطلب ذلك خادماً وسيطاً (Backend Middleware) يستعلم من **RouterOS REST API** المدمج في RouterOS 7 ويعيد بيانات الـ SQLite من `/user-manager/user` بصيغة JSON آمنة.
-  - لا يمكن تنفيذ ذلك من متصفح العميل مباشرة دون وسيط خلفي، لأن ذلك سيتطلب وضع بيانات تسجيل دخول المسؤول (Admin API Credentials) داخل كود الجافاسكربت في المتصفح، وهو ما يمثل خطراً أمنياً جسيماً.
+The Node.js suite simulates template results and browser DOM behavior. It does not prove how RouterOS 7.23.8 resolves every conditional variable on the physical RB1100AHx4. A network administrator must perform a staged, reversible device test after review; no such deployment occurred in this task.

@@ -102,15 +102,28 @@
         }
     </style>
     <script>
+        function decodeTemplate(value) {
+            if (!value || value.indexOf('$(') !== -1) return '';
+            try {
+                return decodeURIComponent(value.replace(/\+/g, ' '));
+            } catch (ignore) {
+                return '';
+            }
+        }
+
+        function isSafeLocalUrl(value) {
+            if (!value) return false;
+            try {
+                var parsed = new URL(value, window.location.href);
+                return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && parsed.origin === window.location.origin;
+            } catch (ignore) {
+                return /^(?:\.\.?\/|\/)?[A-Za-z0-9][A-Za-z0-9_./?=&%+-]*$/.test(value);
+            }
+        }
+
         function getRedirectTarget() {
-            var target = '$(link-redirect)';
-            if (!target || target === '' || target.indexOf('$(') !== -1 || /^javascript:/i.test(target.trim())) {
-                target = '$(link-status)';
-            }
-            if (!target || target === '' || target.indexOf('$(') !== -1 || /^javascript:/i.test(target.trim())) {
-                target = 'status.html';
-            }
-            return target;
+            var target = decodeTemplate('$(link-status-esc)');
+            return isSafeLocalUrl(target) ? target : 'status';
         }
 
         setTimeout(function() {
@@ -136,7 +149,7 @@
             <p class="message">تم تسجيل الدخول بنجاح!</p>
             <p class="sub-message">جاري توجيهك إلى صفحة الحالة...</p>
             
-            <a href="$(link-redirect)" id="redirect-btn" class="redirect-link">انقر هنا إذا لم يتم التوجيه تلقائياً</a>
+            <a href="status" id="redirect-btn" class="redirect-link">انقر هنا إذا لم يتم التوجيه تلقائياً</a>
         </div>
     </div>
 </body>
