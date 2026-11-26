@@ -1,129 +1,68 @@
-# AK Net - بوابة الدخول وصفحة الحالة (HotSpot Portal)
-> **الإصدار المحصّن والمتوافق بالكامل مع MikroTik RouterOS 7 ونظام إدارة المستخدمين User Manager v7**
+# AK Net HotSpot portal
 
----
+Arabic RTL captive-portal frontend for MikroTik RouterOS 7 HotSpot and User Manager v7. It is a static RouterOS page set: no backend, build server, external JavaScript, router credential, or production configuration change is included.
 
-## 🌟 نظرة عامة على المشروع
+## What the portal can show accurately
 
-تم تطوير وتحديث هذه البوابة لشبكة **AK Net** لتوفير تجربة مستخدم سلسة وعصرية باللغة العربية (RTL) مع معالجة دقيقة وعلمية لبيانات الجلسات والاشتراكات ضمن بيئة **MikroTik RouterOS 7** ونظام **User Manager v7** المعتمد على خادم RADIUS المدمج وقاعدة بيانات SQLite.
+- Authenticated HotSpot username and session state.
+- Client IP and MAC.
+- Current-session uptime.
+- Current-session download (`bytes-out`), upload (`bytes-in`), and their total.
+- Combined remaining local/session quota when `remain-bytes-total` resolves numerically.
+- Separate directional remainders without adding them together.
+- Remaining current-session time from RouterOS session variables, with a stable live countdown.
+- A package confirmed by an exact known RADIUS group/Class token, or explicitly labeled as inferred when only an exact RADIUS limit capacity matches.
 
-يتميز هذا الإصدار بالالتزام التام بالمعايير الرسمية لـ RouterOS 7 وتأمين الكود ضد الثغرات وتصفير التخمينات غير الموثوقة لحصص المستخدمين.
+## What static HotSpot HTML cannot prove
 
----
+- Internet reachability beyond an authenticated HotSpot session.
+- User Manager cumulative account consumption when only session counters are exposed.
+- A User Manager remaining balance when HotSpot does not resolve a remaining-quota variable.
+- The active User Manager profile name unless a verified browser-visible RADIUS attribute carries it.
+- The actual User Manager subscription expiration timestamp.
 
-## 📚 وثائق النظام والأدلة التفصيلية
+Unknown values are shown as unavailable. The portal never subtracts current-session traffic from package capacity, treats `---` as an unlimited subscription, combines independent directional limits, or estimates an expiration date.
 
-للحصول على التوثيق الفني المعمق وإرشادات النشر الآمن، يرجى مراجعة الأدلة المرفقة في مجلد `docs/`:
-1. 📄 **[تقرير التدقيق المعماري لتوافق RouterOS 7 و User Manager v7](docs/ROUTEROS7_COMPATIBILITY_AUDIT.md):**
-   - مقارنة معمارية مفصلة بين ROS6 و ROS7.
-   - مصفوفة المتغيرات الرسمية والسمات المدعومة.
-   - معادلات Gigawords وحسابات الباقات الضخمة (>4GB) بدقة 64-bit.
-   - سلوك User Manager v7 وحدود الاتصال التراكمي.
-2. 🚀 **[دليل النشر والتحقق الميداني الآمن على أجهزة MikroTik](docs/MIKROTIK_ROS7_DEPLOYMENT.md):**
-   - **المرحلة A:** استعلام وفحص قراءة فقط (Read-Only) بنسبة 100% للراوتر دون تعديل.
-   - **المرحلة B:** نشر آمن في مجلد مستقل (`hotspot_v7`) مع خطة تراجع لحظية.
-   - **المرحلة C:** قائمة تحقق تشغيلي حي ومصفوفة استكشاف الأخطاء وحلها.
+## AK package metadata
 
----
+| Package | Capacity | Validity from first authentication |
+|---|---:|---:|
+| 200RY | 800 MiB | 1 day |
+| 500RY | 2 GiB | 3 days |
+| 1000RY | 5 GiB | 7 days |
+| 3000RY | 18 GiB | 30 days |
+| 6000RY | 40 GiB | 30 days |
+| 10000RY | 80 GiB | 30 days |
+| 20000RY | 170 GiB | 30 days |
 
-## 🔍 التقرير التقني الجذري والمشكلات المعالجة (Root Cause Analysis)
+This table is plan metadata, not a source of live balance or expiration data.
 
-| المشكلة السابقة | السبب الجذري في RouterOS 7 | الحل المنفذ في هذا الإصدار |
-| :--- | :--- | :--- |
-| **تلف حساب الرصيد المتبقي** | جمع حدي الرفع والتنزيل عشوائياً أو استخدام معادلات وهمية | اعتماد `$(remain-bytes-total)` كمتغير أساسي مدمج، مع إبقاء `$(remain-bytes-in)` و `$(remain-bytes-out)` منفصلين بدقة وعدم جمعهما جبرياً عند استقلالهما |
-| **تلف واختلال الباقات الأكبر من 4GB** | سمة `radius17-14988u` (`Mikrotik-Total-Limit`) هي 32-bit وتتجاوز عند 4.29GB | حساب السعات الضخمة عبر سمة Gigawords `$(radius18-14988u)` بدقة 64-bit لكافة باقات AK Net (5GB, 18GB, 40GB, 80GB, 170GB) |
-| **تزييف الرصيد من الجلسة الواحدة** | طرح استهلاك الجلسة الحالية من سعة الباقة وافتراض أن الناتج هو الرصيد المتبقي | الفصل الصارم بين استهلاك الجلسة الحالية والرصيد التراكمي؛ وعرض حالة موثقة ("يُدار عبر السيرفر") عند تتبع الرصيد داخلياً في SQLite دون تخمين |
-| **طرح مدة الجلسة مرتين (Double Subtraction)** | طرح `uptime` من `session-time-left-secs` رغم أن الراوتر يقوم بإنقاصه تلقائياً | استخدام `$(session-time-left-secs)` مباشرة كقيمة دقيقة وتنازلية حقيقية دون طرح مدة الاتصال مجدداً |
-| **أخطاء تحليل صيغ الوقت في RouterOS** | فشل التعبير النمطي في قراءة الصيغ مثل `1w2d04:10:20` أو `12h30m` | محرك تحليل مرن وشامل لجميع صيغ وقت ميكروتك (أسابيع، أيام، ساعات، دقائق، ثوانٍ) بنظام النقطتين والرموز الحرفية |
-| **خطأ 404 عند فتح لوحة `/um`** | خادم الويب المدمج في ROS 7 يتطلب إلزامياً وجود شرطة مائلة في نهاية المسار | تصحيح الرابط إلى `http://$(hostname)/um/` مع توفير شاشة تفاصيل الجلسة الداخلية |
-| **تسريب بيانات التشخيص في الإنتاج** | وجود لوحة فحص خام مكشوفة في بيئة العمل الحقيقية | عزل لوحة التشخيص تماماً في ملف تطوير مستقل `dev/status-diagnostics.html` وتنظيف صفحة الإنتاج من أي كود فحص مكشوف |
-| **مخاطر الحقن عبر `innerHTML`** | حقن نصوص وقيم الراوتر غير المعالجة مباشرة في DOM | استبدال كافة عمليات الإسناد بـ `textContent` الآمن لمنع أي ثغرات حقن برمجية (XSS) |
+## Authentication and security
 
----
+- HTTP-CHAP keeps MikroTik's required MD5 flow: `chap-id + password + chap-challenge` through local `md5.js`.
+- The existing one-field voucher behavior is preserved: the entered card value is used as username and password.
+- Successful login targets the RouterOS status servlet.
+- Post-login redirects allow only same-origin HTTP(S), otherwise they fall back to local `status`.
+- Browser-visible template text uses `-esc`, is decoded locally, and is assigned with `textContent`.
+- Logout requests `erase-cookie=on` for a clean subsequent login.
+- No production diagnostic output or User Manager management link is exposed.
 
-## 📊 جدول المتغيرات المعتمدة في RouterOS 7 HotSpot
+## Tests
 
-### 1. متغيرات الجلسة والراوتر الرسمية:
-- `$(username)`: اسم المستخدم المصادق عليه.
-- `$(ip)` / `$(mac)`: عنوان IP وعنوان MAC لجهاز المستخدم.
-- `$(uptime)` / `$(uptime-secs)`: مدة اتصال الجلسة الحالية نصاً وبالثواني.
-- `$(session-time-left)` / `$(session-time-left-secs)`: الوقت المتبقي للجلسة الحالية (تنازلي من الراوتر).
-- `$(bytes-in)` / `$(bytes-out)`: حجم البيانات المرفوعة والمنزلة في الجلسة الحالية بالبايت.
-- `$(bytes-in-nice)` / `$(bytes-out-nice)`: حجم البيانات بتنسيق مقروء.
-- `$(remain-bytes-total)`: الرصيد الإجمالي المتبقي المعتمد للجلسة.
-- `$(remain-bytes-out)` / `$(remain-bytes-in)`: الرصيد المتبقي للتنزيل والرفع بشكل منفصل.
-- `$(limit-bytes-total)` / `$(limit-bytes-out)` / `$(limit-bytes-in)`: سقف الجلسة بالبايت.
-
-### 2. سمات MikroTik RADIUS الرسمية (Vendor ID: 14988):
-- `$(radius17-14988u)`: `Mikrotik-Total-Limit` (الجزء المنخفض 32-bit للرصيد).
-- `$(radius18-14988u)`: `Mikrotik-Total-Limit-Gigawords` (مضاعفات 4GB للرصيد الإجمالي).
-- `$(radius1-14988u)` & `$(radius14-14988u)`: حد التنزيل مع Gigawords.
-- `$(radius2-14988u)` & `$(radius15-14988u)`: حد الرفع مع Gigawords.
-- `$(radius3-14988)`: `Mikrotik-Group` (اسم المجموعة أو الفئة).
-- `$(radius8-14988)`: `Mikrotik-Rate-Limit` (تحديد السرعة).
-- `$(radius25)`: سمة `Class` المعتمدة لنقل أسماء الحزم.
-- `$(radius27u)`: سمة `Session-Timeout` بالثواني.
-
----
-
-## 🛠️ بيئة التطوير والتشخيص (Development Diagnostics)
-
-لحماية أمان شبكة الإنتاج ومنع استغلال أو كشف سمات الراوتر للمستخدمين العاديين:
-- تم إزالة لوحة التشخيص `#diag-panel` بالكامل من صفحة الإنتاج `status.html`.
-- تم إنشاء صفحة مخصصة لمهندسي الشبكة للاختبار الميداني داخل مجلد التطوير:
-  📄 `dev/status-diagnostics.html`
-- عند الحاجة لاختبار قيم الراوتر وسمات RADIUS الخام على جهاز تجارب، يتم استدعاء ملف `status-diagnostics.html` بشكل مؤقت مع مراعاة حذفه قبل تدشين الخدمة للجمهور.
-
----
-
-## 🚀 خطة النشر والتشغيل الآمن
-
-> ⚠️ **تنبيه:** يرجى عدم تنفيذ أوامر تغيير عشوائية على الراوتر. اتبع الخطوات الواردة في [دليل النشر الميداني](docs/MIKROTIK_ROS7_DEPLOYMENT.md):
-
-1. **المرحلة A (استعلام فقط):** قراءة اسم البروفايل الفعلي ومسار التخزين (`hotspot` أو `flash/hotspot`) عبر أداة WinBox أو Terminal.
-2. **المرحلة B (نشر معزول):** رفع الملفات إلى مجلد تجريبي جديد (مثلاً `hotspot_v7`) وربط بروفايل تجريبي لا يؤثر على المشتركين الحاليين، مع حفظ نسخة احتياطية كاملة.
-3. **المرحلة C (التحقق الميداني):** تسجيل الدخول بحسابات اختبار ومطابقة الرصيد المتبقي والوقت وتأكيد سلامة التراجع اللحظي في حال حدوث أي طارئ.
-
----
-
-## 🧪 الاختبارات الآلية والتحقق (Automated Tests)
-
-المشروع مزود بجناح اختبارات برمجية مؤتمتة فائق الدقة داخل مجلد [test/status_audit.test.js](test/status_audit.test.js) يحتوي على **16 محور فحص تقني** و **68 اختباراً تأكيدياً**:
+Requires Node.js only:
 
 ```bash
-# لتشغيل جناح الاختبارات عبر Node.js:
 node test/status_audit.test.js
 ```
 
-### المحاور المغطاة في الاختبارات:
-1. **الرصيد المشترك:** دقة قراءة وتنسيق `$(remain-bytes-total)`.
-2. **الحدود الاتجاهية:** التحقق من عدم جمع حدي الرفع والتنزيل المستقلين مطلقاً.
-3. **القيم المفقودة:** التحقق من عرض حالة "يُدار عبر السيرفر" عند غياب الحصص من الراوتر دون أخطاء برمجية.
-4. **الرصيد المنتهي:** معالجة دقيقة لصفر بايت متبقي ("0 ميغابايت (منتهي)").
-5. **الجلسات غير المحدودة:** تمييز الاشتراك غير المحدود صراحة بدون إيجابيات زائفة (False Positives).
-6. **معادلات Gigawords (64-bit):** مطابقة حسابية دقيقة لباقات 5GB, 18GB, 40GB, 80GB, 170GB.
-7. **وقت الجلسة المتبقي:** منع الطرح المزدوج واحتساب الوقت التنازلي الحقيقي مباشرة.
-8. **انتهاء وقت الجلسة:** معالجة دقيقة لحالة انتهاء الوقت بالكامل.
-9. **المتغيرات غير المعوضة:** حماية الـ UI من إظهار `NaN` أو الانهيار عند بقاء وسوم `$(...)`.
-10. **تحليل أوقات RouterOS:** اختبار 7 صيغ زمنية مركبة معقدة تدعمها ميكروتك.
-11. **العدادات الحية:** محاكاة عمل مؤقتات `setInterval` وتحديث الوقت ثانية بثانية والتوقف عند الصفر.
-12. **مطابقة الباقات:** التعرف التلقائي على الفئات عبر `radiusGroup` و `Class` وسعة البايتات.
-13. **معيار RFC 8908 لملف `api.json`:** مطابقة مواصفات Captive Portal API بحالات الدخول والخروج والحدود.
-14. **أمان إعادة التوجيه في `alogin.html`:** الحماية من هجمات الحقن (`javascript:`) والتوجيه السليم لصفحة الحالة.
-15. **التأمين الإنتاجي:** التأكد من إزالة أدوات التشخيص تماماً من ملف الإنتاج ونقلها إلى `dev/`.
-16. **عزل استهلاك الجلسة عن الرصيد الإجمالي:** منع تزييف الرصيد بطرح جلسة واحدة من حجم الباقة.
+The suite covers the 25 requested areas: login, CHAP, identity, session state/counters/timers, quota variants, Gigawords, package confidence, navigation, redirect security, XSS, `api.json`, mobile CSS, and production hardening.
 
-**نتيجة التشغيل المعتمدة:**
-```
-================================================================
-Final Test Results: 68 Passed, 0 Failed (100% Pass Rate)
-================================================================
-```
+These are simulated tests. They do not establish successful operation on the physical RB1100AHx4 or prove which conditional RADIUS values RouterOS 7.23.8 will expose in production.
 
-> **ملاحظة منهجية هامة:** كافة هذه الاختبارات جرت في بيئة محاكاة برمجية مؤتمتة دقيقة تحاكي محرك قوالب RouterOS وخادم RADIUS. لم يتم تطبيق أي أوامر على راوتر الإنتاج الفعلي، ويجب إجراء التحقق الميداني على الجهاز الطبيعي وفق خطوات [دليل النشر الميداني](docs/MIKROTIK_ROS7_DEPLOYMENT.md).
+## Documentation
 
----
+- [RouterOS 7 variable compatibility audit](docs/ROUTEROS7_COMPATIBILITY_AUDIT.md)
+- [Router-side requirements and approval boundary](docs/MIKROTIK_REQUIRED_ACTIONS.md)
+- [Staged deployment checklist](docs/MIKROTIK_ROS7_DEPLOYMENT.md)
 
-## 👤 مطور النظام
-- **المطور:** أحمد أنيس رويشد (Ahmed Anis Rowaished)
-- **المستودع الرسمي:** [https://github.com/ahmed-anis-rowaished/AK-net_login_page](https://github.com/ahmed-anis-rowaished/AK-net_login_page)
+No RouterOS command was executed and nothing was deployed to the active HotSpot directory as part of this change.
